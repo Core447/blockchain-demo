@@ -13,10 +13,10 @@ export default function Page() {
 
     const peerName = useMemo(() => {
         // Just for easier testing - discovery either via fastapi backend or next.js server
-        if (navigator.userAgent.toLowerCase().includes("firefox")) {
-            return "firefox";
-        }
-        return "chrome";
+        // if (navigator.userAgent.toLowerCase().includes("firefox")) {
+        //     return "firefox";
+        // }
+        // return "chrome";
         return uniqueNamesGenerator({
             dictionaries: [adjectives, animals, colors],
             length: 2
@@ -38,18 +38,24 @@ export default function Page() {
     }, [connectedCons]);
 
     const peer = useMemo(() => {
-        const peer = new Peer(peerName);
+        const peer = new Peer(peerName, {
+            host: "localhost",
+            port: 9000,
+            path: "/blockchain",
+        });
         peer.on("open", () => {
             // peer is ready
             loadConnections();
         })
 
-        function getOtherPeerNames(): string[] {
-            return peerName === "firefox" ? ["chrome"] : ["firefox"];
+        async function getOtherPeerNames(): Promise<string[]> {
+            const response = await fetch("http://localhost:9000/blockchain/peerjs/peers"); //server start command: peerjs --port 9000 --key peerjs --path /blockchain --allow_discovery
+            const data = await response.json();
+            return data.filter((p: string) => p !== peerName);
         }
 
-        function loadConnections() {
-            const initialOtherPeerNames = getOtherPeerNames();
+        async function loadConnections() {
+            const initialOtherPeerNames = await getOtherPeerNames();
             initialOtherPeerNames.forEach((otherPeerName) => {
                 // if (peer.id === "chrome") {
                 //     return;
