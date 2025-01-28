@@ -4,6 +4,10 @@ import { DataConnection, Peer } from "peerjs";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator";
 import { useQuery } from "@tanstack/react-query";
+import JSONPretty from 'react-json-pretty';
+import 'react-json-pretty/themes/monikai.css';
+
+
 
 interface Data {
 }
@@ -199,7 +203,9 @@ export default function Page() {
                     {receivedPackages.slice(-5).map((packet, index) => (
                         <div key={index} className="p-2 border rounded mb-2">
                             <p>From: {packet.sender}</p>
-                            <p>Message: {JSON.stringify(packet)}</p>
+                            {/* <p>Message: {JSON.stringify(packet)}</p> */}
+                            <JSONPretty id="json-pretty" data={packet}></JSONPretty>
+
                         </div>
                     ))}
                 </div>
