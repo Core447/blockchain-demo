@@ -195,11 +195,11 @@ export default function Page() {
                 </div>
                 
                 <div>
-                    <h1 className="text-xl font-bold mb-2">Received Messages</h1>
-                    {receivedPackages.slice(-5).map((msg, index) => (
+                    <h1 className="text-xl font-bold mb-2">Received Packages</h1>
+                    {receivedPackages.slice(-5).map((packet, index) => (
                         <div key={index} className="p-2 border rounded mb-2">
-                            <p>From: {msg.sender}</p>
-                            <p>Message: {JSON.stringify(msg)}</p>
+                            <p>From: {packet.sender}</p>
+                            <p>Message: {JSON.stringify(packet)}</p>
                         </div>
                     ))}
                 </div>
