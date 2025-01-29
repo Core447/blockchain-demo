@@ -246,11 +246,15 @@ export default function Page() {
         return packet.proofOfWork!;
     }
 
+    function isHashValid(hash: string, nLeadingZeros: number): boolean {
+        return hash.startsWith('0'.repeat(nLeadingZeros));
+    }
+
     
     return (
         <div className="p-4">
             <p className="mb-4">Peer id: {peer.id}</p>
-            <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/>
+            {/* <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/> */}
 
             <div className="flex flex-rol gap-4">
                 <Button onClick={sendToAll} className="mb-4">Send To All</Button>
@@ -275,7 +279,7 @@ export default function Page() {
                             {/* <p>Message: {JSON.stringify(packet)}</p> */}
                             <JSONPretty id="json-pretty" data={packet}></JSONPretty>
                             <p>Hash: {calculateHashOfPacket(packet)}</p>
-                            <p>Hash as int: {calculateHashOfPacket(packet)}</p>
+                            <p className={`${isHashValid(calculateHashOfPacket(packet), leadingZeros) ? "text-green-500" : "text-red-500"}`}>Hash as int: {calculateHashOfPacket(packet)}</p>
                         </div>
                     ))}
                 </div>
