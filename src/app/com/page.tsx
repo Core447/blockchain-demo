@@ -6,6 +6,9 @@ import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-
 import { useQuery } from "@tanstack/react-query";
 import JSONPretty from 'react-json-pretty';
 import 'react-json-pretty/themes/monikai.css';
+import { createHash } from 'crypto';
+import { Slider } from "@/components/ui/slider";
+
 
 
 
@@ -16,11 +19,16 @@ interface Message extends Data {
     message: string;
 }
 
+interface Transaction extends Data {
+    amount: number;
+}
+
 interface Packet {
     sender: string;
     receivers: string[];
     type: string;
     data: Data;
+    proofOfWork: number | undefined;
 }
 
 export default function Page() {
@@ -28,6 +36,8 @@ export default function Page() {
     const [receivedPackages, setReceivedPackages] = useState<Packet[]>([]);
     // Use a ref to track which connections we've already set up listeners for
     const handledConnections = useRef(new Set<string>());
+
+    const [leadingZeros, setLeadingZeros] = useState(4);
 
     const peerName = useMemo(() => {
         return uniqueNamesGenerator({
@@ -158,35 +168,94 @@ export default function Page() {
         };
     }, [peer, setupConnectionHandlers]);
 
-    function sendToAll() {
-        console.log(`sending to all ${connectedCons.length} connections`);
-        connectedCons.forEach((conn) => {
-            if (conn.open) {
-                const message: Message = {
-                    message: "hello world"
-                }
-                const packet: Packet = {
-                    type: "message",
-                    data: message,
-                    sender: peer.id,
-                    receivers: [conn.peer]
-                }
+    function sendPacket(packet: Packet) {
+        console.log(`Sending packet to ${packet.receivers}:`, packet);
+        packet.receivers.forEach((receiver) => {
+            const conn = connectedCons.find((c) => c.peer === receiver);
+            if (conn) {
                 try {
                     conn.send(packet);
-                    console.log(`Sent data to ${conn.peer}`);
+                    console.log(`Sent packet to ${receiver}`);
                 } catch (error) {
-                    console.error(`Error sending to ${conn.peer}:`, error);
+                    console.error(`Error sending to ${receiver}:`, error);
                 }
             } else {
-                console.warn("Connection is not open:", conn);
+                console.warn("Connection not found for receiver:", receiver);
             }
         });
     }
+
+    function sendCurrency(amount: number, to: string) {
+        const transaction: Transaction = {
+            amount: amount
+        }
+        sendData(transaction, "transaction", [to]);
+    }
+
+    function sendData(data: Data, type: string, to: string[], addProofOfWork?: boolean) {
+        const packet: Packet = {
+            type: type,
+            data: data,
+            sender: peer.id,
+            receivers: to,
+            proofOfWork: undefined
+        }
+        const proofOfWork = addProofOfWork ? calculateProofOfWork(packet, leadingZeros) : undefined;
+        packet.proofOfWork = proofOfWork;
+        sendPacket(packet);
+    }
+
+    function sendToAll() {
+        console.log(`sending to all ${connectedCons.length} connections`);
+        const message: Message = {
+            message: "hello world"
+        }
+        sendData(message, "message", connectedCons.map(c => c.peer));
+    }
+
+    function sendCurrencyToEveryone() {
+        console.log(`sending to all ${connectedCons.length} connections`);
+        const transaction: Transaction = {
+            amount: Math.round(Math.random()*1000),
+        }
+        sendData(transaction, "transaction", connectedCons.map(c => c.peer), true);
+    }
+
+    function calculateHashOfPacket(packet: Packet): string {
+        const packetString = JSON.stringify(packet);
+        const hash = createHash('sha1');
+        hash.update(packetString);
+        return hash.digest('hex');
+    }
+
+    function calculateProofOfWork(packet: Packet, nLeadingZeros: number): number {
+        console.log(`Calculating proof of work for packet:`, packet);
+        const start = performance.now();
+        let tries = 0;
+        let hash = calculateHashOfPacket(packet);
+        while (!hash.startsWith('0'.repeat(nLeadingZeros))) {
+            packet.proofOfWork = (packet.proofOfWork || 0) + 1;
+            hash = calculateHashOfPacket(packet);
+            tries++;
+            if (tries % 1000 === 0) {
+                console.log("Hashes calculated:", tries);
+            }
+        }
+        const end = performance.now();
+        console.log(`Proof of work calculated in ${tries} tries in ${(end - start)/1000}s:`, packet.proofOfWork, hash);
+        return packet.proofOfWork!;
+    }
+
     
     return (
         <div className="p-4">
             <p className="mb-4">Peer id: {peer.id}</p>
-            <Button onClick={sendToAll} className="mb-4">Send To All</Button>
+            <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/>
+
+            <div className="flex flex-rol gap-4">
+                <Button onClick={sendToAll} className="mb-4">Send To All</Button>
+                <Button onClick={sendCurrencyToEveryone} className="mb-4">Send Currency To Everyone</Button>
+            </div>
             
             <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -205,7 +274,8 @@ export default function Page() {
                             <p>From: {packet.sender}</p>
                             {/* <p>Message: {JSON.stringify(packet)}</p> */}
                             <JSONPretty id="json-pretty" data={packet}></JSONPretty>
-
+                            <p>Hash: {calculateHashOfPacket(packet)}</p>
+                            <p>Hash as int: {calculateHashOfPacket(packet)}</p>
                         </div>
                     ))}
                 </div>
