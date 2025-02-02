@@ -7,28 +7,35 @@ import { useQuery } from "@tanstack/react-query";
 import JSONPretty from 'react-json-pretty';
 import 'react-json-pretty/themes/monikai.css';
 import { createHash } from 'crypto';
-import { Slider } from "@/components/ui/slider";
+import { calculateHashOfPacket, isHashValid } from "@/lib/hash";
+import PacketUI from "./PacketUI";
+import { sendData } from "@/lib/communication";
+import { generateKey } from "openpgp";
+import { SignedTransaction, signTransaction, Transaction, verifyTransactionSignature } from "@/lib/transactions";
+import TransactionCard from "./TransactionCard";
 
 
 
 
-interface Data {
+export interface Data {
 }
 
-interface Message extends Data {
+export interface Message extends Data {
     message: string;
 }
 
-interface Transaction extends Data {
-    amount: number;
-}
-
-interface Packet {
+export interface Packet {
     sender: string;
     receivers: string[];
+    // alreadyBelongsToChain: boolean;
     type: string;
     data: Data;
-    proofOfWork: number | undefined;
+    // proofOfWork: number | null;
+    // previousHash: string | null;
+}
+
+export interface PublicKeyShare {
+    publicKey: string;
 }
 
 export default function Page() {
@@ -36,8 +43,18 @@ export default function Page() {
     const [receivedPackages, setReceivedPackages] = useState<Packet[]>([]);
     // Use a ref to track which connections we've already set up listeners for
     const handledConnections = useRef(new Set<string>());
+    const [privateKey, setPrivateKey] = useState("");
+    const [publicKey, setPublicKey] = useState("");
+
+    const publicKeysRef = useRef<Map<string, string>>(new Map());
+    const [publicKeys, setPublicKeys] = useState<Map<string, string>>(new Map());
+
+    const [blockchain, setBlockchain] = useState<Packet[]>([]);
+    const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([]);
 
     const [leadingZeros, setLeadingZeros] = useState(4);
+
+    const [transactions, setTransactions] = useState<SignedTransaction[]>([]);
 
     const peerName = useMemo(() => {
         return uniqueNamesGenerator({
@@ -45,6 +62,17 @@ export default function Page() {
             length: 2
         });
     }, []);
+
+    useEffect(() => {
+        async function load() {
+            const { publicKey, privateKey } = await generateKey({
+                userIDs: [{ name: peerName }],
+            })
+            setPublicKey(publicKey);
+            setPrivateKey(privateKey);
+        }
+        load();
+    }, [peerName]);
 
     const getOtherPeerNames = async (): Promise<string[]> => {
         const response = await fetch("http://localhost:9000/blockchain/peerjs/peers");
@@ -74,7 +102,43 @@ export default function Page() {
 
         conn.on("data", (data) => {
             console.log(`Received data from ${conn.peer}:`, data);
-            setReceivedPackages(prev => [...prev, data as Packet]);
+            const receivedPacket = data as Packet;
+            if (receivedPacket.type == "publicKeyShare") {
+                const publicSharePacket = receivedPacket.data as PublicKeyShare;
+                publicKeysRef.current.set(receivedPacket.sender, publicSharePacket.publicKey);
+                setPublicKeys(new Map(publicKeysRef.current));
+                console.log("public keys", publicKeysRef.current);
+            }
+            if (receivedPacket.type == "transaction") {
+                // const signedTransaction = data as SignedTransaction;
+                const signedTransaction = receivedPacket.data as SignedTransaction;
+                const publicKeyOfSender = publicKeysRef.current.get(receivedPacket.sender);
+                // signedTransaction.transaction.amount = 1000;
+                setTransactions(prev => [...prev, signedTransaction]);
+
+
+
+
+                console.log("public key of sender", publicKeyOfSender);
+                console.log("we have the public keys of ", publicKeys);
+                if (!publicKeyOfSender) {
+                    console.error(`Public key of sender "${receivedPacket.sender}" not found`);
+                    return;
+                }
+                verifyTransactionSignature(signedTransaction, publicKeyOfSender).then((result) => {
+                    if (result) {
+                        console.log("Transaction is valid");
+                    } else {
+                        console.error("Transaction is not valid");
+                    }
+                })
+            }
+            // if (receivedPacket.alreadyBelongsToChain) {
+            //     setBlockchain(prev => [...prev, receivedPacket]);
+            // } else {
+            //     setUnverifiedPackages(prev => [...prev, receivedPacket]);
+            // }
+            // setReceivedPackages(prev => [...prev, data as Packet]);
         });
 
         conn.on("close", () => {
@@ -168,87 +232,47 @@ export default function Page() {
         };
     }, [peer, setupConnectionHandlers]);
 
-    function sendPacket(packet: Packet) {
-        console.log(`Sending packet to ${packet.receivers}:`, packet);
-        packet.receivers.forEach((receiver) => {
-            const conn = connectedCons.find((c) => c.peer === receiver);
-            if (conn) {
-                try {
-                    conn.send(packet);
-                    console.log(`Sent packet to ${receiver}`);
-                } catch (error) {
-                    console.error(`Error sending to ${receiver}:`, error);
-                }
-            } else {
-                console.warn("Connection not found for receiver:", receiver);
-            }
-        });
-    }
+    
 
-    function sendCurrency(amount: number, to: string) {
-        const transaction: Transaction = {
-            amount: amount
-        }
-        sendData(transaction, "transaction", [to]);
-    }
+    // function sendCurrency(amount: number, to: string) {
+    //     const transaction: Transaction = {
+    //         amount: amount
+    //     }
+    //     sendData(transaction, "transaction", [to]);
+    // }
 
-    function sendData(data: Data, type: string, to: string[], addProofOfWork?: boolean) {
-        const packet: Packet = {
-            type: type,
-            data: data,
-            sender: peer.id,
-            receivers: to,
-            proofOfWork: undefined
+    function broadcastPublicKey() {
+        const data: PublicKeyShare = {
+            publicKey: publicKey
         }
-        const proofOfWork = addProofOfWork ? calculateProofOfWork(packet, leadingZeros) : undefined;
-        packet.proofOfWork = proofOfWork;
-        sendPacket(packet);
+        sendData(peer, connectedCons, setUnverifiedPackages, data, "publicKeyShare", connectedCons.map(c => c.peer));
     }
+    
 
     function sendToAll() {
         console.log(`sending to all ${connectedCons.length} connections`);
         const message: Message = {
             message: "hello world"
         }
-        sendData(message, "message", connectedCons.map(c => c.peer));
+        sendData(peer, connectedCons, setUnverifiedPackages, message, "message", connectedCons.map(c => c.peer));
     }
 
-    function sendCurrencyToEveryone() {
+    async function sendCurrencyToEveryone() {
         console.log(`sending to all ${connectedCons.length} connections`);
         const transaction: Transaction = {
             amount: Math.round(Math.random()*1000),
+            sender: peer.id,
+            receiver: "everyone"
         }
-        sendData(transaction, "transaction", connectedCons.map(c => c.peer), true);
+        const signedTransaction: SignedTransaction = await signTransaction(transaction, privateKey);
+        sendData(peer, connectedCons, setUnverifiedPackages, signedTransaction, "transaction", connectedCons.map(c => c.peer));
     }
 
-    function calculateHashOfPacket(packet: Packet): string {
-        const packetString = JSON.stringify(packet);
-        const hash = createHash('sha1');
-        hash.update(packetString);
-        return hash.digest('hex');
-    }
 
-    function calculateProofOfWork(packet: Packet, nLeadingZeros: number): number {
-        console.log(`Calculating proof of work for packet:`, packet);
-        const start = performance.now();
-        let tries = 0;
-        let hash = calculateHashOfPacket(packet);
-        while (!hash.startsWith('0'.repeat(nLeadingZeros))) {
-            packet.proofOfWork = (packet.proofOfWork || 0) + 1;
-            hash = calculateHashOfPacket(packet);
-            tries++;
-            if (tries % 1000 === 0) {
-                console.log("Hashes calculated:", tries);
-            }
-        }
-        const end = performance.now();
-        console.log(`Proof of work calculated in ${tries} tries in ${(end - start)/1000}s:`, packet.proofOfWork, hash);
-        return packet.proofOfWork!;
-    }
-
-    function isHashValid(hash: string, nLeadingZeros: number): boolean {
-        return hash.startsWith('0'.repeat(nLeadingZeros));
-    }
+    const publicKeysAsString = useMemo(() => {
+        return JSON.stringify(Object.fromEntries(publicKeys));
+    }, [publicKeys]);
+    
 
     
     return (
@@ -256,9 +280,13 @@ export default function Page() {
             <p className="mb-4">Peer id: {peer.id}</p>
             {/* <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/> */}
 
+            <p>PublicKeys: {publicKeysAsString}</p>
+            <p>Length: {publicKeys.size}</p>
+
             <div className="flex flex-rol gap-4">
                 <Button onClick={sendToAll} className="mb-4">Send To All</Button>
                 <Button onClick={sendCurrencyToEveryone} className="mb-4">Send Currency To Everyone</Button>
+                <Button onClick={broadcastPublicKey} className="mb-4">Broadcast Public Key</Button>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -270,19 +298,26 @@ export default function Page() {
                         </div>
                     ))}
                 </div>
-                
+
                 <div>
-                    <h1 className="text-xl font-bold mb-2">Received Packages</h1>
-                    {receivedPackages.slice(-5).map((packet, index) => (
-                        <div key={index} className="p-2 border rounded mb-2">
-                            <p>From: {packet.sender}</p>
-                            {/* <p>Message: {JSON.stringify(packet)}</p> */}
-                            <JSONPretty id="json-pretty" data={packet}></JSONPretty>
-                            <p>Hash: {calculateHashOfPacket(packet)}</p>
-                            <p className={`${isHashValid(calculateHashOfPacket(packet), leadingZeros) ? "text-green-500" : "text-red-500"}`}>Hash as int: {calculateHashOfPacket(packet)}</p>
-                        </div>
+                    <h1 className="text-xl font-bold mb-2">Transactions</h1>
+                    {transactions.slice(-5).map((transaction, index) => (
+                        <TransactionCard transaction={transaction} key={index} publicKeys={publicKeys}/>
                     ))}
                 </div>
+                
+                {/* <div>
+                    <h1 className="text-xl font-bold mb-2">Blockchain</h1>
+                    {blockchain.slice(-5).map((packet, index) => (
+                        <PacketUI key={index} packet={packet} blockchain={blockchain} connectedCons={connectedCons} setVerifiedPackages={setBlockchain} peer={peer}/>
+                    ))}
+                </div>
+                <div>
+                    <h1 className="text-xl font-bold mb-2">Unverified Packages</h1>
+                    {unverifiedPackages.slice(-5).map((packet, index) => (
+                        <PacketUI key={index} packet={packet} blockchain={blockchain} connectedCons={connectedCons} setVerifiedPackages={setUnverifiedPackages} peer={peer}/>
+                    ))}
+                </div> */}
             </div>
         </div>
     );
