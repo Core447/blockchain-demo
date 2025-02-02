@@ -1,15 +1,15 @@
-import { SignedTransaction } from "./transactions";
+import { Transaction } from "./transactions";
 
 export class Block {
-    transactions: SignedTransaction[];
+    transactions: Transaction[];
     
-    constructor(transactions: SignedTransaction[]) {
+    constructor(transactions: Transaction[]) {
         this.transactions = this.getIndexedTransactions(transactions);
     }
     
-    getIndexedTransactions(transactions: SignedTransaction[]): SignedTransaction[] {
+    getIndexedTransactions(transactions: Transaction[]): Transaction[] {
         return transactions.map((transaction, index) => {
-            transaction.transaction.index = index;
+            transaction.index = index;
             return transaction;
         });
     }
@@ -19,7 +19,7 @@ export class MinedBlock extends Block {
     previousHash: string;
     proofOfWork: number;
 
-    constructor(previousHash: string, proofOfWork: number, transactions: SignedTransaction[]) {
+    constructor(previousHash: string, proofOfWork: number, transactions: Transaction[]) {
         super(transactions);
         this.previousHash = previousHash;
         this.proofOfWork = proofOfWork;

@@ -13,6 +13,7 @@ import { sendData } from "@/lib/communication";
 import { generateKey } from "openpgp";
 import { SignedTransactionData, Transaction } from "@/lib/transactions";
 import TransactionCard from "./TransactionCard";
+import { useBlockChainContext } from "@/context/blockchain";
 
 
 
@@ -51,12 +52,11 @@ export default function Page() {
     const publicKeysRef = useRef<Map<string, string>>(new Map());
     const [publicKeys, setPublicKeys] = useState<Map<string, string>>(new Map());
 
-    const [blockchain, setBlockchain] = useState<Packet[]>([]);
     const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([]);
 
     const [leadingZeros, setLeadingZeros] = useState(4);
 
-    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const blockchain = useBlockChainContext();
 
     const peerName = useMemo(() => {
         return uniqueNamesGenerator({
@@ -123,7 +123,8 @@ export default function Page() {
                     data.signMessage,
                 )
 
-                setTransactions(prev => [...prev, transaction]);
+                // setTransactions(prev => [...prev, transaction]);
+                blockchain.addPendingTransaction(transaction);
 
             }
             // if (receivedPacket.alreadyBelongsToChain) {
@@ -261,6 +262,7 @@ export default function Page() {
         )
         await transaction.signTransaction(privateKey);
         console.log("sending:", transaction.getDataWithSignature());
+        blockchain.addPendingTransaction(transaction);
         sendData(peer, connectedCons, setUnverifiedPackages, transaction.getDataWithSignature(), "transaction", connectedCons.map(c => c.peer));
     }
 
@@ -269,6 +271,9 @@ export default function Page() {
         return JSON.stringify(Object.fromEntries(publicKeys));
     }, [publicKeys]);
     
+    function mineLatestTransaction() {
+        blockchain.mineBlockFromTransactions(blockchain.pendingTransactions.slice(0, 1));
+    }
 
     
     return (
@@ -283,6 +288,7 @@ export default function Page() {
                 <Button onClick={sendToAll} className="mb-4">Send To All</Button>
                 <Button onClick={sendCurrencyToEveryone} className="mb-4">Send Currency To Everyone</Button>
                 <Button onClick={broadcastPublicKey} className="mb-4">Broadcast Public Key</Button>
+                <Button onClick={mineLatestTransaction} className="mb-4">Mine Latest Transaction</Button>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -296,8 +302,8 @@ export default function Page() {
                 </div>
 
                 <div>
-                    <h1 className="text-xl font-bold mb-2">Transactions</h1>
-                    {transactions.slice(-5).map((transaction, index) => (
+                    <h1 className="text-xl font-bold mb-2">Pending Transactions</h1>
+                    {blockchain.pendingTransactions.slice(-5).map((transaction, index) => (
                         <TransactionCard transaction={transaction} key={index} publicKeys={publicKeys}/>
                     ))}
                 </div>
