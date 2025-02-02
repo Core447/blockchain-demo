@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import ReactQueryProvider from "@/utils/ReacyQueryProvider";
 import { BlockChainProvider } from "@/context/blockchain";
+import { ConnectionProvider } from "@/context/connectionContext";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -31,9 +32,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ReactQueryProvider>
-          <BlockChainProvider>
-            {children}
-          </BlockChainProvider>
+          <ConnectionProvider>
+            <BlockChainProvider>
+              {children}
+            </BlockChainProvider>
+          </ConnectionProvider>
         </ReactQueryProvider>
       </body>
     </html>
