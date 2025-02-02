@@ -11,7 +11,7 @@ import { calculateHashOfPacket, isHashValid } from "@/lib/hash";
 import PacketUI from "./PacketUI";
 import { sendData } from "@/lib/communication";
 import { generateKey } from "openpgp";
-import { SignedTransaction, signTransaction, Transaction, verifyTransactionSignature } from "@/lib/transactions";
+import { SignedTransactionData, Transaction } from "@/lib/transactions";
 import TransactionCard from "./TransactionCard";
 
 
@@ -38,6 +38,8 @@ export interface PublicKeyShare {
     publicKey: string;
 }
 
+
+
 export default function Page() {
     const [connectedCons, setConnectedCons] = useState<DataConnection[]>([]);
     const [receivedPackages, setReceivedPackages] = useState<Packet[]>([]);
@@ -54,7 +56,7 @@ export default function Page() {
 
     const [leadingZeros, setLeadingZeros] = useState(4);
 
-    const [transactions, setTransactions] = useState<SignedTransaction[]>([]);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
 
     const peerName = useMemo(() => {
         return uniqueNamesGenerator({
@@ -111,27 +113,18 @@ export default function Page() {
             }
             if (receivedPacket.type == "transaction") {
                 // const signedTransaction = data as SignedTransaction;
-                const signedTransaction = receivedPacket.data as SignedTransaction;
-                const publicKeyOfSender = publicKeysRef.current.get(receivedPacket.sender);
-                // signedTransaction.transaction.amount = 1000;
-                setTransactions(prev => [...prev, signedTransaction]);
 
+                const data = receivedPacket.data as SignedTransactionData;
+                const transaction = new Transaction(
+                    data.index,
+                    data.amount,
+                    data.sender,
+                    data.receiver,
+                    data.signMessage,
+                )
 
+                setTransactions(prev => [...prev, transaction]);
 
-
-                console.log("public key of sender", publicKeyOfSender);
-                console.log("we have the public keys of ", publicKeys);
-                if (!publicKeyOfSender) {
-                    console.error(`Public key of sender "${receivedPacket.sender}" not found`);
-                    return;
-                }
-                verifyTransactionSignature(signedTransaction, publicKeyOfSender).then((result) => {
-                    if (result) {
-                        console.log("Transaction is valid");
-                    } else {
-                        console.error("Transaction is not valid");
-                    }
-                })
             }
             // if (receivedPacket.alreadyBelongsToChain) {
             //     setBlockchain(prev => [...prev, receivedPacket]);
@@ -259,13 +252,16 @@ export default function Page() {
 
     async function sendCurrencyToEveryone() {
         console.log(`sending to all ${connectedCons.length} connections`);
-        const transaction: Transaction = {
-            amount: Math.round(Math.random()*1000),
-            sender: peer.id,
-            receiver: "everyone"
-        }
-        const signedTransaction: SignedTransaction = await signTransaction(transaction, privateKey);
-        sendData(peer, connectedCons, setUnverifiedPackages, signedTransaction, "transaction", connectedCons.map(c => c.peer));
+        const transaction = new Transaction(
+            null,
+            Math.round(Math.random()*1000),
+            peer.id,
+            "everyone",
+            null
+        )
+        await transaction.signTransaction(privateKey);
+        console.log("sending:", transaction.getDataWithSignature());
+        sendData(peer, connectedCons, setUnverifiedPackages, transaction.getDataWithSignature(), "transaction", connectedCons.map(c => c.peer));
     }
 
 

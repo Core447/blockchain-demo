@@ -1,8 +1,8 @@
-import { SignedTransaction, verifyTransactionSignature } from "@/lib/transactions"
+import { Transaction } from "@/lib/transactions";
 import { useEffect, useMemo, useState } from "react"
 
 interface TransactionCardProps {
-    transaction: SignedTransaction
+    transaction: Transaction
     publicKeys: Map<string, string>
 }
 
@@ -10,12 +10,11 @@ export default function TransactionCard({ transaction, publicKeys }: Transaction
     const [signatureIsValid, setSignatureIsValid] = useState(false);
     useEffect(() => {
         async function load() {
-            const publicKeyOfSender = publicKeys.get(transaction.transaction.sender);
+            const publicKeyOfSender = publicKeys.get(transaction.sender);
             if (!publicKeyOfSender) {
                 return false;
             }
-            // transaction.transaction.amount = 1000;
-            setSignatureIsValid(await verifyTransactionSignature(transaction, publicKeyOfSender));
+            setSignatureIsValid(await transaction.verifyTransactionSignature(publicKeyOfSender));
         }
         load();
     }, [transaction, publicKeys]);
@@ -23,9 +22,9 @@ export default function TransactionCard({ transaction, publicKeys }: Transaction
 
     return (
         <div className="p-2 border rounded mb-2">
-            <p>Sender: {transaction.transaction.sender}</p>
-            <p>Receiver: {transaction.transaction.receiver}</p>
-            <p>Amount: {transaction.transaction.amount}</p>
+            <p>Sender: {transaction.sender}</p>
+            <p>Receiver: {transaction.receiver}</p>
+            <p>Amount: {transaction.amount}</p>
             <h1 className="text-lg font-bold">Checks</h1>
             <p>{signatureIsValid ? "Signature is valid" : "Signature is not valid"}</p>
         </div>
