@@ -24,6 +24,10 @@ export class MinedBlock extends Block {
         this.previousHash = previousHash;
         this.proofOfWork = proofOfWork;
     }
+
+    getIsValid(previousBlock: MinedBlock): boolean {
+        return true;
+    }
 }
 
 export class PendingBlock extends Block {
