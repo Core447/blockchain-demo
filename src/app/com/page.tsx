@@ -43,7 +43,6 @@ export interface PublicKeyShare {
 
 
 export default function Page() {
-    const [receivedPackages, setReceivedPackages] = useState<Packet[]>([]);
     // Use a ref to track which connections we've already set up listeners for
     const [privateKey, setPrivateKey] = useState("");
     const [publicKey, setPublicKey] = useState("");
@@ -52,8 +51,6 @@ export default function Page() {
     const [publicKeys, setPublicKeys] = useState<Map<string, string>>(new Map());
 
     const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([]);
-
-    const [leadingZeros, setLeadingZeros] = useState(4);
 
     const blockchain = useBlockChainContext();
 
@@ -88,6 +85,12 @@ export default function Page() {
         });
 
     }, [])
+
+    // Store own public key
+    useEffect(() => {
+        publicKeysRef.current.set(peer.id, publicKey);
+        setPublicKeys(new Map(publicKeysRef.current));
+    }, [publicKey, peer.id]);
 
 
 
@@ -142,8 +145,7 @@ export default function Page() {
             <p className="mb-4">Peer id: {peer.id}</p>
             {/* <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/> */}
 
-            <p>PublicKeys: {publicKeysAsString}</p>
-            <p>Length: {publicKeys.size}</p>
+            <p>Number of public keys: {publicKeys.size}</p>
 
             <div className="flex flex-rol gap-4">
                 {/* <Button onClick={sendToAll} className="mb-4">Send To All</Button> */}
