@@ -1,7 +1,7 @@
 import { Data, Packet } from "@/app/com/page";
 import Peer, { DataConnection } from "peerjs";
 
-export function sendData(peer: Peer, connectedCons: DataConnection[], setUnverifiedPackages: React.Dispatch<React.SetStateAction<Packet[]>>, data: Data, type: string, to: string[]) {
+export function sendData(peer: Peer, connectedCons: DataConnection[], data: Data, type: string, to: string[]) {
     const packet: Packet = {
         type: type,
         data: data,
@@ -12,7 +12,6 @@ export function sendData(peer: Peer, connectedCons: DataConnection[], setUnverif
         // previousHash: null
     }
     sendPacket(packet, connectedCons);
-    setUnverifiedPackages(prev => [...prev, packet]);
 }
 
 export function sendBlockData(peer: Peer, connectedCons: DataConnection[], setVerifiedPackages: React.Dispatch<React.SetStateAction<Packet[]>>, data: Data, type: string, to: string[], prevBlockHash: string, proofOfWork: number) {

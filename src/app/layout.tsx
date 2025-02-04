@@ -4,6 +4,7 @@ import "./globals.css";
 import ReactQueryProvider from "@/utils/ReacyQueryProvider";
 import { BlockChainProvider } from "@/context/blockchain";
 import { ConnectionProvider } from "@/context/connectionContext";
+import { OpenPGPProvider } from "@/context/openpgp";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -32,11 +33,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ReactQueryProvider>
-          <ConnectionProvider>
-            <BlockChainProvider>
-              {children}
-            </BlockChainProvider>
-          </ConnectionProvider>
+            <ConnectionProvider>
+          <OpenPGPProvider>
+              <BlockChainProvider>
+                {children}
+              </BlockChainProvider>
+          </OpenPGPProvider>
+            </ConnectionProvider>
         </ReactQueryProvider>
       </body>
     </html>

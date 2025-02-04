@@ -15,6 +15,7 @@ import { SignedTransactionData, Transaction } from "@/lib/transactions";
 import TransactionCard from "./TransactionCard";
 import { useBlockChainContext } from "@/context/blockchain";
 import { useConnectionContext } from "@/context/connectionContext";
+import { useOpenPGPContext } from "@/context/openpgp";
 
 
 
@@ -43,16 +44,10 @@ export interface PublicKeyShare {
 
 
 export default function Page() {
-    // Use a ref to track which connections we've already set up listeners for
-    const [privateKey, setPrivateKey] = useState("");
-    const [publicKey, setPublicKey] = useState("");
-
-    const publicKeysRef = useRef<Map<string, string>>(new Map());
-    const [publicKeys, setPublicKeys] = useState<Map<string, string>>(new Map());
-
     const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([]);
 
     const blockchain = useBlockChainContext();
+    const pgp = useOpenPGPContext();
 
     const { peer, peerName, connectedCons, addDataHandler } = useConnectionContext();
     // const [areDataHandlersSet, setAreDataHandlersSet] = useState(false);
@@ -67,9 +62,10 @@ export default function Page() {
         addDataHandler((packet: Packet) => {
             if (packet.type == "publicKeyShare") {
                 const publicSharePacket = packet.data as PublicKeyShare;
-                publicKeysRef.current.set(packet.sender, publicSharePacket.publicKey);
-                setPublicKeys(new Map(publicKeysRef.current));
-                console.log("public keys", publicKeysRef.current);
+                pgp.publicKeysRef.current.set(packet.sender, publicSharePacket.publicKey);
+                pgp.setPublicKeys(new Map(pgp.publicKeysRef.current));
+                // setPublicKeys(new Map(publicKeysRef.current));
+                console.log("public keys", pgp.publicKeys);
             }
             if (packet.type == "transaction") {
                 const data = packet.data as SignedTransactionData;
@@ -86,33 +82,9 @@ export default function Page() {
 
     }, [])
 
-    // Store own public key
-    useEffect(() => {
-        publicKeysRef.current.set(peer.id, publicKey);
-        setPublicKeys(new Map(publicKeysRef.current));
-    }, [publicKey, peer.id]);
 
 
-
-    useEffect(() => {
-        async function load() {
-            const { publicKey, privateKey } = await generateKey({
-                userIDs: [{ name: peerName }],
-            })
-            setPublicKey(publicKey);
-            setPrivateKey(privateKey);
-        }
-        load();
-    }, [peerName]);
-
-
-
-    function broadcastPublicKey() {
-        const data: PublicKeyShare = {
-            publicKey: publicKey
-        }
-        sendData(peer, connectedCons, setUnverifiedPackages, data, "publicKeyShare", connectedCons.map(c => c.peer));
-    }
+    
 
 
     async function sendCurrencyToEveryone() {
@@ -124,16 +96,16 @@ export default function Page() {
             "everyone",
             null
         )
-        await transaction.signTransaction(privateKey);
+        await transaction.signTransaction(pgp.privateKey);
         console.log("sending:", transaction.getDataWithSignature());
         blockchain.addPendingTransaction(transaction);
-        sendData(peer, connectedCons, setUnverifiedPackages, transaction.getDataWithSignature(), "transaction", connectedCons.map(c => c.peer));
+        sendData(peer, connectedCons, transaction.getDataWithSignature(), "transaction", connectedCons.map(c => c.peer));
     }
 
 
     const publicKeysAsString = useMemo(() => {
-        return JSON.stringify(Object.fromEntries(publicKeys));
-    }, [publicKeys]);
+        return JSON.stringify(Object.fromEntries(pgp.publicKeys));
+    }, [pgp.publicKeys]);
 
     function mineLatestTransaction() {
         blockchain.mineBlockFromTransactions(blockchain.pendingTransactions.slice(0, 1));
@@ -145,12 +117,12 @@ export default function Page() {
             <p className="mb-4">Peer id: {peer.id}</p>
             {/* <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/> */}
 
-            <p>Number of public keys: {publicKeys.size}</p>
+            <p>Number of public keys: {pgp.publicKeys.size}</p>
 
             <div className="flex flex-rol gap-4">
                 {/* <Button onClick={sendToAll} className="mb-4">Send To All</Button> */}
                 <Button onClick={sendCurrencyToEveryone} className="mb-4">Send Currency To Everyone</Button>
-                <Button onClick={broadcastPublicKey} className="mb-4">Broadcast Public Key</Button>
+                {/* <Button onClick={broadcastPublicKey} className="mb-4">Broadcast Public Key</Button> */}
                 <Button onClick={mineLatestTransaction} className="mb-4">Mine Latest Transaction</Button>
             </div>
 
@@ -167,7 +139,7 @@ export default function Page() {
                 <div>
                     <h1 className="text-xl font-bold mb-2">Pending Transactions</h1>
                     {blockchain.pendingTransactions.slice(-5).map((transaction, index) => (
-                        <TransactionCard transaction={transaction} key={index} publicKeys={publicKeys} />
+                        <TransactionCard transaction={transaction} key={index} publicKeys={pgp.publicKeys} />
                     ))}
                 </div>
 
