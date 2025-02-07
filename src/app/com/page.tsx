@@ -16,6 +16,7 @@ import TransactionCard from "./TransactionCard";
 import { useBlockChainContext } from "@/context/blockchain";
 import { useConnectionContext } from "@/context/connectionContext";
 import { useOpenPGPContext } from "@/context/openpgp";
+import { Block, MinedBlock, MinedBlockData } from "@/lib/blocks";
 
 
 
@@ -78,6 +79,24 @@ export default function Page() {
                 )
                 blockchain.addPendingTransaction(transaction);
             }
+
+            if (packet.type == "block") {
+                const blockData = packet.data as MinedBlockData;
+
+                const transactions = blockData.transactions.map(transaction => {
+                    return new Transaction(
+                        transaction.index,
+                        transaction.amount,
+                        transaction.sender,
+                        transaction.receiver,
+                        transaction.signMessage,
+                    )
+                })
+
+                const block = new MinedBlock(blockData.previousHash, blockData.proofOfWork, transactions);
+                console.log("received block", block);
+                blockchain.addBlock(block, true);
+            }
         });
 
     }, [])
@@ -103,12 +122,20 @@ export default function Page() {
     }
 
 
-    const publicKeysAsString = useMemo(() => {
-        return JSON.stringify(Object.fromEntries(pgp.publicKeys));
-    }, [pgp.publicKeys]);
-
     function mineLatestTransaction() {
-        blockchain.mineBlockFromTransactions(blockchain.pendingTransactions.slice(0, 1));
+        const minedBlock = blockchain.mineBlockFromTransactions(blockchain.pendingTransactions.slice(0, 1));
+
+        console.log("mined block:", minedBlock);
+        blockchain.addBlock(minedBlock, true);
+        // TODO: broadcast mined block - other ones will remove pending transactions themselves
+
+        sendData(peer, connectedCons, minedBlock.getData(), "block", connectedCons.map(c => c.peer));
+
+        // Find transactions to remove
+        // const transactionsToRemove = transactions.filter(t => pendingTransactions.includes(t));
+        // setPendingTransactions(pendingTransactions.filter(t => !transactionsToRemove.includes(t)));
+
+        // blockchain.setPendingTransactions(blockchain.pendingTransactions.filter(t => !minedBlock.transactions.includes(t)));
     }
 
 

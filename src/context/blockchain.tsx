@@ -1,17 +1,18 @@
 "use client";
 
 import { Blockchain } from "@/lib/blockchain";
-import { Block, PendingBlock } from "@/lib/blocks";
+import { Block, MinedBlock, PendingBlock } from "@/lib/blocks";
 import { Transaction } from "@/lib/transactions";
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useRef, useState } from "react";
 
 type BlockChainContextType = {
     // blockchain: Blockchain
     pendingTransactions: Transaction[]
     blocks: Block[]
     addPendingTransaction: (transaction: Transaction) => void
-    addBlock: (block: Block) => void
-    mineBlockFromTransactions: (transactions: Transaction[]) => void
+    addBlock: (block: Block, removeFromPending?: boolean) => void
+    mineBlockFromTransactions: (transactions: Transaction[]) => MinedBlock
+    setPendingTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -26,32 +27,53 @@ export const useBlockChainContext = () => {
 
 export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     // const [blockchain, setBlockchain] = useState(new Blockchain());
+    const pendingTransactionsRef = useRef<Transaction[]>([]);
     const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
     const [blocks, setBlocks] = useState<Block[]>([]);
 
     function addPendingTransaction(transaction: Transaction) {
-        setPendingTransactions(prev => [...prev, transaction]);
+        // setPendingTransactions(prev => [...prev, transaction]);
+        pendingTransactionsRef.current = [...pendingTransactionsRef.current, transaction];
+        setPendingTransactions(pendingTransactionsRef.current);
     }
 
-    function addBlock(block: Block) {
+    function addBlock(block: Block, removeFromPending = false) {
         setBlocks([...blocks, block]);
+
+        let transactionToRemove: Transaction | null = null;
+
+        if (removeFromPending) {
+            // setPendingTransactions(prev => prev.filter(t => !block.transactions.includes(t)));
+            console.log("pending transactions:", pendingTransactionsRef);
+            console.log("is Eq:", pendingTransactionsRef.current[0].isEqual(block.transactions[0]));
+
+
+            pendingTransactionsRef.current.forEach((pendingTransaction, index) => {
+                block.transactions.forEach(blockTransaction => {
+                    if (pendingTransaction.isEqual(blockTransaction)) {
+                        transactionToRemove = pendingTransaction;
+                    }
+                })
+            })
+        }
+
+        if (!transactionToRemove) {
+            console.log("error");
+            return;
+        }
+        // setPendingTransactions(prev => prev.filter(t => !transactionToRemove.isEqual(t)));
+        console.log("transaction to remove:", transactionToRemove);
+        pendingTransactionsRef.current = pendingTransactionsRef.current.filter(t => !transactionToRemove.isEqual(t));
+        setPendingTransactions(pendingTransactionsRef.current);
     }
 
-    function mineBlockFromTransactions(transactions: Transaction[]) {
+    function mineBlockFromTransactions(transactions: Transaction[]): MinedBlock {
         const block = new PendingBlock(transactions);
-        const minedBlock = block.mine("prev");
-        addBlock(minedBlock);
-        // TODO: broadcast mined block - other ones will remove pending transactions themselves
-
-        // Find transactions to remove
-        // const transactionsToRemove = transactions.filter(t => pendingTransactions.includes(t));
-        // setPendingTransactions(pendingTransactions.filter(t => !transactionsToRemove.includes(t)));
-
-        setPendingTransactions(pendingTransactions.filter(t => !transactions.includes(t)));
+        return block.mine("prev");
     }
 
     return (
-        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions }}>
+        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions }}>
             {children}
         </BlockChainContext.Provider>
     )

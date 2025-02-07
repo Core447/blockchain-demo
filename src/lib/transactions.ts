@@ -96,4 +96,21 @@ export class Transaction {
     
         return false;
     }
+
+    isEqual(transaction: Transaction) {
+        if (this.amount != transaction.amount) {
+            console.log("amount not equal");
+            return false;
+        }
+        if (this.sender != transaction.sender) {
+            console.log("sender not equal");
+            return false;
+        }
+        if (this.receiver != transaction.receiver) {
+            console.log("receiver not equal");
+            return false;
+        }
+        return true;
+        // return (this.index == transaction.index && this.amount == transaction.amount && this.sender == transaction.sender && this.receiver == transaction.receiver);
+    }
 }

@@ -1,5 +1,14 @@
 import { Transaction } from "./transactions";
 
+export interface BlockData {
+    transactions: Transaction[];
+}
+
+export interface MinedBlockData extends BlockData {
+    previousHash: string;
+    proofOfWork: number;
+}
+
 export class Block {
     transactions: Transaction[];
     
@@ -12,6 +21,12 @@ export class Block {
             transaction.index = index;
             return transaction;
         });
+    }
+
+    getData(): BlockData {
+        return {
+            transactions: this.transactions
+        }
     }
 }
 
@@ -27,6 +42,14 @@ export class MinedBlock extends Block {
 
     getIsValid(previousBlock: MinedBlock): boolean {
         return true;
+    }
+
+    getData(): MinedBlockData {
+        return {
+            ...super.getData(),
+            previousHash: this.previousHash,
+            proofOfWork: this.proofOfWork
+        }
     }
 }
 
