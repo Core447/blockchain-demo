@@ -3,7 +3,7 @@
 import { createContext, use, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useConnectionContext } from "./connectionContext";
 import { generateKey } from "openpgp";
-import { PublicKeyShare } from "@/app/com/page";
+import { BroadcastOtherPublicKeys, PublicKeyShare } from "@/app/com/page";
 import { sendData } from "@/lib/communication";
 
 type OpenPGPContextType = {
@@ -54,6 +54,16 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
         sendData(peer, connectedCons, data, "publicKeyShare", connectedCons.map(c => c.peer));
     }, [publicKey, peer, connectedCons]);
+
+    const broadcastOtherPublicKeys = useCallback(() => {
+        console.info("broadcasting other public keys");
+        const otherPublicKeys = new Map<string, string>(publicKeysRef.current);
+        otherPublicKeys.delete(peerName);
+        const data: BroadcastOtherPublicKeys = {
+            otherPublicKeys: otherPublicKeys
+        }
+        sendData(peer, connectedCons, data, "broadcastOtherPublicKeys", connectedCons.map(c => c.peer));
+    }, [peer, connectedCons, peerName]);
 
     // broadcast new public key
     useEffect(() => {

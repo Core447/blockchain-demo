@@ -17,6 +17,8 @@ import { useBlockChainContext } from "@/context/blockchain";
 import { useConnectionContext } from "@/context/connectionContext";
 import { useOpenPGPContext } from "@/context/openpgp";
 import { Block, MinedBlock, MinedBlockData } from "@/lib/blocks";
+import { Payload } from "@/lib/requester";
+import { RequestOtherPublicKey } from "@/lib/messages";
 
 
 
@@ -43,6 +45,10 @@ export interface PublicKeyShare {
 }
 
 
+export interface BroadcastOtherPublicKeys {
+    otherPublicKeys: Map<string, string>;
+}
+
 
 export default function Page() {
     const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([]);
@@ -50,7 +56,7 @@ export default function Page() {
     const blockchain = useBlockChainContext();
     const pgp = useOpenPGPContext();
 
-    const { peer, peerName, connectedCons, addDataHandler } = useConnectionContext();
+    const { peer, peerName, connectedCons, addDataHandler, requesters } = useConnectionContext();
     // const [areDataHandlersSet, setAreDataHandlersSet] = useState(false);
     const areDataHandlersSet = useRef(false);
 
@@ -138,6 +144,24 @@ export default function Page() {
         // blockchain.setPendingTransactions(blockchain.pendingTransactions.filter(t => !minedBlock.transactions.includes(t)));
     }
 
+    async function requestPublicKeys() {
+        console.log("requesting public keys");
+        await Promise.all(
+            connectedCons.map(async (conn) => {
+                const requester = requesters.get(conn.peer);
+                if (requester) {
+                    const publicKey = await requester.request<Payload<RequestOtherPublicKey>, Payload>({
+                        type: "requestOtherPublicKey",
+                        payload: {
+                            peer: "peer"
+                        }
+                    });
+                    console.log("received public key:", publicKey.payload);
+                }
+            })
+        )
+    }
+
 
     return (
         <div className="p-4">
@@ -151,6 +175,7 @@ export default function Page() {
                 <Button onClick={sendCurrencyToEveryone} className="mb-4">Send Currency To Everyone</Button>
                 {/* <Button onClick={broadcastPublicKey} className="mb-4">Broadcast Public Key</Button> */}
                 <Button onClick={mineLatestTransaction} className="mb-4">Mine Latest Transaction</Button>
+                <Button onClick={requestPublicKeys} className="mb-4">Request Public Keys</Button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

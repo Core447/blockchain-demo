@@ -1,6 +1,8 @@
 "use client";
 
 import { Packet } from "@/app/com/page";
+import { RequestOtherPublicKey } from "@/lib/messages";
+import { RRMessage, Payload, PeerRequester } from "@/lib/requester";
 import { useQuery } from "@tanstack/react-query";
 import Peer, { DataConnection } from "peerjs";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
@@ -11,6 +13,7 @@ type ConnectionContextType = {
     connectedCons: DataConnection[];
     peerName: string;
     addDataHandler: (handler: (packet: Packet) => void) => void;
+    requesters: Map<string, PeerRequester>;
 }
 
 const ConnectionContext = createContext<ConnectionContextType | null>(null);
@@ -29,6 +32,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const handledConnections = useRef(new Set<string>());
     // const [dataHandlers, setDataHandlers] = useState<((packet: Packet) => void)[]>([]);
     const dataHandlers = useRef<((packet: Packet) => void)[]>([]);
+
+    const requesters = useRef<Map<string, PeerRequester>>(new Map());
+
+    
 
     function addDataHandler(handler: (packet: Packet) => void) {
         // setDataHandlers(prev => [...prev, handler]);
@@ -73,6 +80,18 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         conn.on("open", () => {
             console.log(`Connection opened with ${conn.peer}`);
+            const requester = new PeerRequester(conn);
+            requester.onRequest<Payload, Payload>((payload) => {
+                if (payload.type === "requestOtherPublicKey") {
+                    const data: RequestOtherPublicKey = payload.payload;
+                    const response: Payload = {
+                        type: "returnOtherPublicKey",
+                        payload: "this is the other public key"
+                    }
+                    return response
+                }
+            })
+            requesters.current.set(conn.peer, requester);
             addConnection(conn);
         });
 
@@ -87,6 +106,8 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             console.log(`Connection closed with ${conn.peer}`);
             handledConnections.current.delete(conn.peer);
             setConnectedCons(prev => prev.filter(c => c.peer !== conn.peer));
+            // Remove the requesters for this connection
+            requesters.current.delete(conn.peer);
         });
 
         conn.on("error", (err) => {
@@ -168,7 +189,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }, [activePeers]);
 
     return (
-        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler }}>
+        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current }}>
             {children}
         </ConnectionContext.Provider>
     );
