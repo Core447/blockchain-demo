@@ -14,6 +14,9 @@ type ConnectionContextType = {
     peerName: string;
     addDataHandler: (handler: (packet: Packet) => void) => void;
     requesters: Map<string, PeerRequester>;
+    RRHandlers: Map<string, (payload: Payload) => void>;
+    addRRHandler: (payloadType: string, handler: (payload: Payload) => Payload) => void;
+    sendRRMessage: (peerName: string, payload: Payload) => Promise<Payload>;
 }
 
 const ConnectionContext = createContext<ConnectionContextType | null>(null);
@@ -32,6 +35,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const handledConnections = useRef(new Set<string>());
     // const [dataHandlers, setDataHandlers] = useState<((packet: Packet) => void)[]>([]);
     const dataHandlers = useRef<((packet: Packet) => void)[]>([]);
+    const RRHandlers = useRef<Map<string, ((payload: Payload<unknown>) => Payload<unknown>)>>(new Map());
 
     const requesters = useRef<Map<string, PeerRequester>>(new Map());
 
@@ -40,6 +44,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     function addDataHandler(handler: (packet: Packet) => void) {
         // setDataHandlers(prev => [...prev, handler]);
         dataHandlers.current.push(handler);
+    }
+
+    function addRRHandler(payloadType: string, handler: (payload: Payload) => Payload) {
+        // setDataHandlers(prev => [...prev, handler]);
+        RRHandlers.current.set(payloadType, handler);
     }
 
     const peerName = useMemo(() => {
@@ -69,6 +78,15 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
     }, []);
 
+    async function sendRRMessage<TRequest, TResponse>(peerName: string, payload: TRequest): Promise<TResponse> {
+        const requester = requesters.current.get(peerName);
+        if (requester) {
+            const response = await requester.request<TRequest, TResponse>(payload);
+            return response;
+        }
+        throw new Error(`No connection to ${peerName}`);
+    }
+
     const setupConnectionHandlers = useCallback((conn: DataConnection) => {
         // Check if we've already set up handlers for this connection
         if (handledConnections.current.has(conn.peer)) {
@@ -82,14 +100,22 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             console.log(`Connection opened with ${conn.peer}`);
             const requester = new PeerRequester(conn);
             requester.onRequest<Payload, Payload>((payload) => {
-                if (payload.type === "requestOtherPublicKey") {
-                    const data: RequestOtherPublicKey = payload.payload;
-                    const response: Payload = {
-                        type: "returnOtherPublicKey",
-                        payload: "this is the other public key"
-                    }
-                    return response
+                // if (payload.type === "requestOtherPublicKey") {
+                //     const data: RequestOtherPublicKey = payload.payload;
+                //     const response: Payload = {
+                //         type: "returnOtherPublicKey",
+                //         payload: "this is the other public key"
+                //     }
+                //     return response
+                // }
+                // find handler
+                console.log("Received request", payload);
+                const handler = RRHandlers.current.get(payload.type);
+                if (handler) {
+                    return handler(payload);
                 }
+                console.error("No handler found for", payload.type);
+                throw new Error(`No handler for ${payload.type}`);
             })
             requesters.current.set(conn.peer, requester);
             addConnection(conn);
@@ -189,7 +215,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }, [activePeers]);
 
     return (
-        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current }}>
+        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current, RRHandlers: RRHandlers.current, addRRHandler, sendRRMessage }}>
             {children}
         </ConnectionContext.Provider>
     );

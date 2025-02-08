@@ -56,7 +56,7 @@ export default function Page() {
     const blockchain = useBlockChainContext();
     const pgp = useOpenPGPContext();
 
-    const { peer, peerName, connectedCons, addDataHandler, requesters } = useConnectionContext();
+    const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext();
     // const [areDataHandlersSet, setAreDataHandlersSet] = useState(false);
     const areDataHandlersSet = useRef(false);
 
@@ -104,6 +104,19 @@ export default function Page() {
                 blockchain.addBlock(block, true);
             }
         });
+
+        addRRHandler("requestOtherPublicKey", (r) => {
+            const payload = r.payload as RequestOtherPublicKey;
+            console.log("searching in public keys:", pgp.publicKeysRef)
+            const otherPublicKey = pgp.publicKeysRef.current.get(payload.peer);
+
+            return {
+                type: "publicKeyShare",
+                payload: {
+                    publicKey: otherPublicKey
+                }
+            }
+        })
 
     }, [])
 
@@ -153,7 +166,7 @@ export default function Page() {
                     const publicKey = await requester.request<Payload<RequestOtherPublicKey>, Payload>({
                         type: "requestOtherPublicKey",
                         payload: {
-                            peer: "peer"
+                            peer: peerName
                         }
                     });
                     console.log("received public key:", publicKey.payload);
