@@ -11,12 +11,13 @@ import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-
 type ConnectionContextType = {
     peer: Peer;
     connectedCons: DataConnection[];
+    connectedConsRef: React.MutableRefObject<DataConnection[]>;
     peerName: string;
     addDataHandler: (handler: (packet: Packet) => void) => void;
     requesters: Map<string, PeerRequester>;
     RRHandlers: Map<string, (payload: Payload) => void>;
     addRRHandler: (payloadType: string, handler: (payload: Payload) => Payload) => void;
-    sendRRMessage: (peerName: string, payload: Payload) => Promise<Payload>;
+    sendRRMessage<TRequest, TResponse>(peerName: string, payload: TRequest): (peerName: string, payload: Payload) => Promise<TResponse>;
 }
 
 const ConnectionContext = createContext<ConnectionContextType | null>(null);
@@ -31,6 +32,7 @@ export const useConnectionContext = () => {
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [connectedCons, setConnectedCons] = useState<DataConnection[]>([]);
+    const connectedConsRef = useRef<DataConnection[]>([]);
     // Use a ref to track which connections we've already set up listeners for
     const handledConnections = useRef(new Set<string>());
     // const [dataHandlers, setDataHandlers] = useState<((packet: Packet) => void)[]>([]);
@@ -71,6 +73,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     });
 
     const addConnection = useCallback((conn: DataConnection) => {
+        connectedConsRef.current.push(conn);
         setConnectedCons(prev => {
             const exists = prev.some(c => c.peer === conn.peer);
             if (exists) return prev;
@@ -132,6 +135,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             console.log(`Connection closed with ${conn.peer}`);
             handledConnections.current.delete(conn.peer);
             setConnectedCons(prev => prev.filter(c => c.peer !== conn.peer));
+            connectedConsRef.current = connectedConsRef.current.filter(c => c.peer !== conn.peer);
             // Remove the requesters for this connection
             requesters.current.delete(conn.peer);
         });
@@ -140,6 +144,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             console.error(`Connection error with ${conn.peer}:`, err);
             handledConnections.current.delete(conn.peer);
             setConnectedCons(prev => prev.filter(c => c.peer !== conn.peer));
+            connectedConsRef.current = connectedConsRef.current.filter(c => c.peer !== conn.peer);
         });
 
     }, []);
@@ -215,7 +220,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }, [activePeers]);
 
     return (
-        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current, RRHandlers: RRHandlers.current, addRRHandler, sendRRMessage }}>
+        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current, RRHandlers: RRHandlers.current, addRRHandler, sendRRMessage, connectedConsRef }}>
             {children}
         </ConnectionContext.Provider>
     );

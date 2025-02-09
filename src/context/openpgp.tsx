@@ -5,6 +5,8 @@ import { useConnectionContext } from "./connectionContext";
 import { generateKey } from "openpgp";
 import { BroadcastOtherPublicKeys, PublicKeyShare } from "@/app/com/page";
 import { sendData } from "@/lib/communication";
+import { RequestOtherPublicKey, ResponseOtherPublicKey } from "@/lib/messages";
+import { Payload } from "@/lib/requester";
 
 type OpenPGPContextType = {
     privateKey: string;
@@ -12,6 +14,7 @@ type OpenPGPContextType = {
     publicKeys: Map<string, string>;
     publicKeysRef: React.MutableRefObject<Map<string, string>>
     setPublicKeys: React.Dispatch<React.SetStateAction<Map<string, string>>>
+    retrievePublicKeyFromNetwork: (peerName: string) => Promise<ResponseOtherPublicKey[]>
 };
 
 export const OpenPGPContext = createContext<OpenPGPContextType | null>(null);
@@ -31,7 +34,7 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const publicKeysRef = useRef<Map<string, string>>(new Map());
     const [ publicKeys, setPublicKeys ] = useState<Map<string, string>>(new Map());
 
-    const { peerName, peer, connectedCons } = useConnectionContext();
+    const { peerName, peer, connectedCons, sendRRMessage, connectedConsRef } = useConnectionContext();
 
     useEffect(() => {
         async function load() {
@@ -70,9 +73,33 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
         broadcastPublicKey();
     }, [broadcastPublicKey]);
 
+    const retrievePublicKeyFromNetwork = useCallback(async (peerName: string) => {
+        console.log("asking", connectedConsRef.current.length, "connections for public key");
+        const answers = await Promise.all(connectedConsRef.current.map(async (conn) => {
+            console.log("sending request to", conn.peer);
+            const r = sendRRMessage<Payload<RequestOtherPublicKey>, Payload<ResponseOtherPublicKey>>(conn.peer, {
+                type: "requestOtherPublicKey",
+                payload: {
+                    peer: peerName
+                }
+            }
+        )
+        }));
+        console.log("answers:", answers);
+
+        if (answers.length === 0) {
+            return;
+        }
+
+        return answers[0].payload.publicKey;
+
+
+        return answers;
+    }, []);
+
 
     return (
-        <OpenPGPContext.Provider value={{ privateKey, publicKey, publicKeys: publicKeys, publicKeysRef, setPublicKeys }}>
+        <OpenPGPContext.Provider value={{ privateKey, publicKey, publicKeys: publicKeys, publicKeysRef, setPublicKeys, retrievePublicKeyFromNetwork }}>
             {children}
         </OpenPGPContext.Provider>
     );
