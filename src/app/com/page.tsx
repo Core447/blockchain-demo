@@ -132,23 +132,26 @@ export default function Page() {
 
 
 
-    
+
 
 
     async function sendCurrencyToEveryone() {
         console.log(`sending to all ${connectedCons.length} connections`);
-        const transaction = new Transaction(
-            blockchain.ownTransactionIDRef.current,
-            Math.round(Math.random() * 1000),
-            peer.id,
-            "everyone",
-            null
-        )
-        // blockchain.incrementOwnTransactionID();
-        await transaction.signTransaction(pgp.privateKey);
-        console.log("sending:", transaction.getDataWithSignature());
-        blockchain.addPendingTransaction(transaction);
-        sendData(peer, connectedCons, transaction.getDataWithSignature(), "transaction", connectedCons.map(c => c.peer));
+        const amount = Math.round(Math.random() * 1000)
+        for (const conn of connectedCons) {
+            const transaction = new Transaction(
+                blockchain.ownTransactionIDRef.current,
+                amount,
+                peer.id,
+                conn.peer,
+                null
+            )
+            // blockchain.incrementOwnTransactionID();
+            await transaction.signTransaction(pgp.privateKey);
+            console.log("sending:", transaction.getDataWithSignature());
+            blockchain.addPendingTransaction(transaction);
+            sendData(peer, connectedCons, transaction.getDataWithSignature(), "transaction", connectedCons.map(c => c.peer));
+        }
     }
 
 
@@ -186,6 +189,10 @@ export default function Page() {
         )
     }
 
+    const ownBalance = useMemo(() => {
+        return blockchain.calculateBalance(pgp.publicKeysRef.current, peer.id);
+    }, [blockchain, peer.id, pgp.publicKeysRef.current]);
+
 
     return (
         <div className="p-4">
@@ -193,6 +200,7 @@ export default function Page() {
             {/* <input type="number" value={leadingZeros} onChange={(e) => setLeadingZeros(parseInt(e.target.value))} className="mb-4"/> */}
 
             <p>Number of public keys: {pgp.publicKeys.size}</p>
+            <p>Own balance: {ownBalance}</p>
 
             <div className="flex flex-rol gap-4">
                 {/* <Button onClick={sendToAll} className="mb-4">Send To All</Button> */}

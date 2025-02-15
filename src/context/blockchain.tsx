@@ -19,6 +19,7 @@ type BlockChainContextType = {
     setOwnTransactionID: (transactionID: number) => void
     incrementOwnTransactionID: () => void
     getBlockByHash: (hash: string) => MinedBlock | null
+    calculateBalance: (publicKeys: Map<string, string>, userId: string) => number
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -99,8 +100,55 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return block.mine(latestBlock);
     }
 
+    function getAllTransactionsInChain() {
+        const transactions = [];
+        for (const block of blocks) {
+            transactions.push(...block.transactions);
+        }
+        return transactions;
+    }
+
+    function getValidTransactions(publicKeys: Map<string, string>) {
+        const allTransactions = getAllTransactionsInChain();
+        let userIds = [...allTransactions.map(transaction => transaction.sender), ...allTransactions.map(transaction => transaction.receiver)];
+        userIds = Array.from(new Set(userIds));
+
+        let senderIds = allTransactions.map(transaction => transaction.sender);
+        senderIds = Array.from(new Set(senderIds));
+
+        const validTransactions = [];
+        for (const senderId of senderIds) {
+            const previousTransactionsOfUser = [];
+            const senderTransactions = allTransactions.filter(transaction => transaction.sender === senderId);
+            for (const transaction of senderTransactions) {
+                if (transaction.isValid(publicKeys, previousTransactionsOfUser)) {
+                    validTransactions.push(transaction);
+                    previousTransactionsOfUser.push(transaction);
+                }
+            }
+        }
+
+        return validTransactions;
+    }
+
+    function calculateBalance(publicKeys: Map<string, string>, userId: string) {
+        // get all transactions
+        if (blocks.length === 0) {
+            return 0;
+        }
+        const latestBlock = blocks[blocks.length - 1];
+        // const transactions = latestBlock.getAllTransactionsInChain();
+        const transactions = getValidTransactions(publicKeys);
+        const outgoingTransactions = transactions.filter(transaction => transaction.sender === userId);
+        const incomingTransactions = transactions.filter(transaction => transaction.receiver === userId);
+        const outgoingAmount = outgoingTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+        const incomingAmount = incomingTransactions.reduce((total, transaction) => total + transaction.amount, 0);
+        return incomingAmount - outgoingAmount;
+    }
+
+
     return (
-        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef }}>
+        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef, calculateBalance }}>
             {children}
         </BlockChainContext.Provider>
     )

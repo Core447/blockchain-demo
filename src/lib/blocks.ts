@@ -124,10 +124,22 @@ export class MinedBlock extends Block {
         const transactionsBeforeThisBlock = this.previousBlock ? this.previousBlock.getTransactionsOfUserInChain(userId) : [];
         return [...transactionsBeforeThisBlock, ...matchingTransactionsOfThisBlock];
     }
+
+    getAllTransactionsInChain(): Transaction[] {
+        const transactionsBeforeThisBlock = this.previousBlock ? this.previousBlock.getAllTransactionsInChain() : [];
+        return [...transactionsBeforeThisBlock, ...this.transactions];
+    }
 }
 
 export class PendingBlock extends Block {
     mine(previousBlock: MinedBlock): MinedBlock {
-        return new MinedBlock(previousBlock, 1234, this.transactions);
+        let proofOfWork = 0;
+        let minedBlock = new MinedBlock(previousBlock, proofOfWork, this.transactions);
+        while (!minedBlock.getHash().startsWith("000")) {
+            proofOfWork++;
+            minedBlock = new MinedBlock(previousBlock, proofOfWork, this.transactions);
+        }
+
+        return minedBlock;
     }
 }

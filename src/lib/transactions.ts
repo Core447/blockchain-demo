@@ -119,8 +119,31 @@ export class Transaction {
         // return (this.index == transaction.index && this.amount == transaction.amount && this.sender == transaction.sender && this.receiver == transaction.receiver);
     }
 
-    checkIfIndexIsUnique(transactionsOfUser: Transaction[]) {
-        const indices = transactionsOfUser.map(transaction => transaction.index);
+    checkIfIndexIsUnique(previousTransactionsOfUser: Transaction[]) {
+        const indices = [...previousTransactionsOfUser, this].map(transaction => transaction.index);
         return indices.length == new Set(indices).size;
+    }
+
+    isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
+        console.log("checking with n previous transactions:", previousTransactionsOfUser.length);
+        if (!this.checkIfIndexIsUnique(previousTransactionsOfUser)) {
+            console.log("false: index not unique");
+            return false;
+        }
+        if (!this.sender) {
+            console.log("false: no sender");
+            return false;
+        }
+        const publicKey = publicKeys.get(this.sender);
+        if (!publicKey) {
+            console.log("false: no public key");
+            return false;
+        }
+        if (!this.verifyTransactionSignature(publicKey)) {
+            console.log("false: signature not valid");
+            return false;
+        }
+        console.log("true");
+        return true;
     }
 }
