@@ -39,6 +39,13 @@ export class MinedBlock extends Block {
     }
 
     async getIsValid(publicKeys: Map<string, string>): Promise<boolean> {
+        // Check hash
+        if (!this.getHash().startsWith("000")) {
+            return false;
+        }
+
+
+
         // return true;
         if (!(await Promise.all(
             this.transactions.map(transaction => {
