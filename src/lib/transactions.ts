@@ -14,13 +14,13 @@ export interface SignedTransactionData extends UnsignedTransactionData {
 }
 
 export class Transaction {
-    index: number | null;
+    index: number;
     amount: number;
     sender: string;
     receiver: string;
     signMessage: string | null;
 
-    constructor(index: number | null = null, amount: number, sender: string, receiver: string, signMessage: string | null = null) {
+    constructor(index: number, amount: number, sender: string, receiver: string, signMessage: string | null = null) {
         this.index = index;
         this.amount = amount;
         this.sender = sender;
@@ -117,5 +117,10 @@ export class Transaction {
         }
         return true;
         // return (this.index == transaction.index && this.amount == transaction.amount && this.sender == transaction.sender && this.receiver == transaction.receiver);
+    }
+
+    checkIfIndexIsUnique(transactionsOfUser: Transaction[]) {
+        const indices = transactionsOfUser.map(transaction => transaction.index);
+        return indices.length == new Set(indices).size;
     }
 }

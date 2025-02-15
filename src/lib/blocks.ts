@@ -1,4 +1,5 @@
 import { Transaction } from "./transactions";
+import { createHash } from "crypto";
 
 export interface BlockData {
     transactions: Transaction[];
@@ -21,21 +22,25 @@ export class Block {
             transactions: this.transactions
         }
     }
+
+    getHash(): string {
+        return createHash('sha256').update(JSON.stringify(this.getData())).digest('hex');
+    }
 }
 
 export class MinedBlock extends Block {
-    previousHash: string;
+    previousBlock: MinedBlock | null;
     proofOfWork: number;
 
-    constructor(previousHash: string, proofOfWork: number, transactions: Transaction[]) {
+    constructor(previousBlock: MinedBlock | null, proofOfWork: number, transactions: Transaction[]) {
         super(transactions);
-        this.previousHash = previousHash;
+        this.previousBlock = previousBlock;
         this.proofOfWork = proofOfWork;
     }
 
-    async getIsValid(previousBlock: MinedBlock, publicKeys: Map<string, string>): Promise<boolean> {
+    async getIsValid(publicKeys: Map<string, string>): Promise<boolean> {
         // return true;
-        return (await Promise.all(
+        if (!(await Promise.all(
             this.transactions.map(transaction => {
                 const publicKey = publicKeys.get(transaction.sender);
                 if (!publicKey) {
@@ -45,26 +50,77 @@ export class MinedBlock extends Block {
                 console.log("public key of sender:", publicKey);
                 return transaction.verifyTransactionSignature(publicKey);
             })
-        )).every(isValid => isValid);
+        )).every(isValid => isValid)) {
+            return false;
+        }
 
+        // if (!this.getAreIndicesUnique()) {
+        //     return false;
+        // }
 
+        // Check transaction uniqueness
+        const senders = Array.from(new Set(this.transactions.map(transaction => transaction.sender)));
+        for (const sender of senders) {
+            const transactions = this.getTransactionsOfUserInChain(sender);
+            if (!transactions.every(transaction => transaction.checkIfIndexIsUnique(transactions))) {
+                return false;
+            }
+        }
+
+        
         // TODO: The following checks
         // 1. The proof of work is correct
         // 2. Check previous hash
         // 3. Check the uniqueness of indices of transactions
+        return true;
     }
+    
+    // getAreIndicesUnique(): boolean {
+    //     const senders = Array.from(new Set(this.transactions.map(transaction => transaction.sender)));
+
+    //     for (const sender of senders) {
+    //         const indices = this.getIndicesOfTransactionsOfUserInChain(sender);
+    //         console.log(`We have ${indices.length} indices for ${sender}`);
+    //         if (indices.length !== new Set(indices).size) {
+    //             return false;
+    //         }
+    //     }
+
+    //     return true;
+    // }
+    
 
     getData(): MinedBlockData {
         return {
             ...super.getData(),
-            previousHash: this.previousHash,
+            previousHash: this.previousBlock ? this.previousBlock.getHash() : "",
             proofOfWork: this.proofOfWork
         }
+    }
+
+    // getIndicesOfTransactionsOfUserInChain(userId: string): number[] {
+    //     const matchingTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === userId);
+    //     const indices = matchingTransactionsOfThisBlock.map(transaction => transaction.index);
+
+    //     if (this.previousBlock) {
+    //         console.log("We ahve a previous block");
+    //     } else {
+    //         console.log("No previous block");
+    //     }
+        
+    //     const indicesBeforeThisBlock = this.previousBlock ? this.previousBlock.getIndicesOfTransactionsOfUserInChain(userId) : [];
+    //     return [...indicesBeforeThisBlock, ...indices];
+    // }
+
+    getTransactionsOfUserInChain(userId: string): Transaction[] {
+        const matchingTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === userId);
+        const transactionsBeforeThisBlock = this.previousBlock ? this.previousBlock.getTransactionsOfUserInChain(userId) : [];
+        return [...transactionsBeforeThisBlock, ...matchingTransactionsOfThisBlock];
     }
 }
 
 export class PendingBlock extends Block {
-    mine(previousHash: string): MinedBlock {
-        return new MinedBlock(previousHash, 1234, this.transactions);
+    mine(previousBlock: MinedBlock): MinedBlock {
+        return new MinedBlock(previousBlock, 1234, this.transactions);
     }
 }

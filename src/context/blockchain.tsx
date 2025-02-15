@@ -9,6 +9,7 @@ type BlockChainContextType = {
     // blockchain: Blockchain
     pendingTransactions: Transaction[]
     blocks: MinedBlock[]
+    blocksRef: React.MutableRefObject<MinedBlock[]>
     addPendingTransaction: (transaction: Transaction) => void
     addBlock: (block: MinedBlock, removeFromPending?: boolean) => void
     mineBlockFromTransactions: (transactions: Transaction[]) => MinedBlock
@@ -17,6 +18,7 @@ type BlockChainContextType = {
     ownTransactionIDRef: React.MutableRefObject<number>
     setOwnTransactionID: (transactionID: number) => void
     incrementOwnTransactionID: () => void
+    getBlockByHash: (hash: string) => MinedBlock | null
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -34,6 +36,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const pendingTransactionsRef = useRef<Transaction[]>([]);
     const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
     const [blocks, setBlocks] = useState<MinedBlock[]>([]);
+    const blocksRef = useRef<MinedBlock[]>([]);
 
     const ownTransactionIDRef = useRef(0);
     const [ownTransactionIDState, setOwnTransactionIDState] = useState(0);
@@ -53,9 +56,15 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setPendingTransactions(pendingTransactionsRef.current);
     }
 
+    function getBlockByHash(hash: string): MinedBlock | null {
+        return blocksRef.current.find(block => block.getHash() == hash) ?? null;
+    }
+
     function addBlock(block: MinedBlock, removeFromPending = false) {
         // setBlocks([...blocks, block]);
-        setBlocks(prev => [...prev, block]);
+        blocksRef.current.push(block);
+        setBlocks(blocksRef.current);
+        // setBlocks(prev => [...prev, block]);
 
         let transactionToRemove: Transaction | null = null;
 
@@ -86,11 +95,12 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     function mineBlockFromTransactions(transactions: Transaction[]): MinedBlock {
         const block = new PendingBlock(transactions);
-        return block.mine("prev");
+        const latestBlock = blocks[blocks.length - 1];
+        return block.mine(latestBlock);
     }
 
     return (
-        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID }}>
+        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef }}>
             {children}
         </BlockChainContext.Provider>
     )

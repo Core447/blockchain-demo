@@ -5,6 +5,10 @@ export class Blockchain {
     pendingTransactions: Transaction[];
     blocks: Block[];
 
+    getBlockByHash(hash: string) {
+        return this.blocks.find(block => block. === hash);
+    }
+
     
 
     constructor(pendingTransactions: Transaction[] = [], blocks: Block[] = []) {

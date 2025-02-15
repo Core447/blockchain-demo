@@ -13,7 +13,7 @@ export default function BlockCard({ block }: BlockCardProps) {
 
     useEffect(() => {
         async function load() {
-            setIsValid(await block.getIsValid(block, pgp.publicKeys));
+            setIsValid(await block.getIsValid(pgp.publicKeys));
         }
         load();
     }, [block, pgp.publicKeys]);
@@ -23,6 +23,8 @@ export default function BlockCard({ block }: BlockCardProps) {
             <p>N of transactions: {block.transactions.length}</p>
             <h1 className="text-lg font-bold">Checks</h1>
             <p>{isValid ? "Is valid" : "Is not valid"}</p>
+            <p>{block.previousBlock ? "Has previous block" : "Does not have previous block"}</p>
+            <p>Hash: {block.getHash().slice(0, 10)}</p>
         </div>
     )
 }

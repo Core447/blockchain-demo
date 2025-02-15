@@ -100,7 +100,16 @@ export default function Page() {
                     )
                 })
 
-                const block = new MinedBlock(blockData.previousHash, blockData.proofOfWork, transactions);
+                const previousBlock = blockchain.getBlockByHash(blockData.previousHash);
+
+                console.log("searching for previous block with hash:", blockData.previousHash);
+
+                if (blockData.previousHash && !previousBlock) {
+                    console.error("Could not find previous block:", blockData.previousHash);
+                    return;
+                }
+
+                const block = new MinedBlock(previousBlock, blockData.proofOfWork, transactions);
                 console.log("received block", block);
                 blockchain.addBlock(block, true);
             }
@@ -135,7 +144,7 @@ export default function Page() {
             "everyone",
             null
         )
-        blockchain.incrementOwnTransactionID();
+        // blockchain.incrementOwnTransactionID();
         await transaction.signTransaction(pgp.privateKey);
         console.log("sending:", transaction.getDataWithSignature());
         blockchain.addPendingTransaction(transaction);
