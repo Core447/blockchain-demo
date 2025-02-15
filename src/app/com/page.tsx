@@ -19,6 +19,7 @@ import { useOpenPGPContext } from "@/context/openpgp";
 import { Block, MinedBlock, MinedBlockData } from "@/lib/blocks";
 import { Payload } from "@/lib/requester";
 import { RequestOtherPublicKey } from "@/lib/messages";
+import BlockCard from "./BlockCard";
 
 
 
@@ -128,12 +129,13 @@ export default function Page() {
     async function sendCurrencyToEveryone() {
         console.log(`sending to all ${connectedCons.length} connections`);
         const transaction = new Transaction(
-            null,
+            blockchain.ownTransactionIDRef.current,
             Math.round(Math.random() * 1000),
             peer.id,
             "everyone",
             null
         )
+        blockchain.incrementOwnTransactionID();
         await transaction.signTransaction(pgp.privateKey);
         console.log("sending:", transaction.getDataWithSignature());
         blockchain.addPendingTransaction(transaction);
@@ -207,6 +209,14 @@ export default function Page() {
                         <TransactionCard transaction={transaction} key={index} publicKeys={pgp.publicKeys} />
                     ))}
                 </div>
+
+                <div>
+                    <h1 className="text-xl font-bold mb-2">Mined Blocks</h1>
+                    {blockchain.blocks.slice(-5).map((block, index) => (
+                        <BlockCard key={index} block={block} />
+                    ))}
+                </div>
+
 
                 {/* <div>
                     <h1 className="text-xl font-bold mb-2">Blockchain</h1>

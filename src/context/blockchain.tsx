@@ -8,11 +8,15 @@ import { createContext, useContext, useRef, useState } from "react";
 type BlockChainContextType = {
     // blockchain: Blockchain
     pendingTransactions: Transaction[]
-    blocks: Block[]
+    blocks: MinedBlock[]
     addPendingTransaction: (transaction: Transaction) => void
-    addBlock: (block: Block, removeFromPending?: boolean) => void
+    addBlock: (block: MinedBlock, removeFromPending?: boolean) => void
     mineBlockFromTransactions: (transactions: Transaction[]) => MinedBlock
     setPendingTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>
+    ownTransactionIDState: number
+    ownTransactionIDRef: React.MutableRefObject<number>
+    setOwnTransactionID: (transactionID: number) => void
+    incrementOwnTransactionID: () => void
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -29,7 +33,19 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // const [blockchain, setBlockchain] = useState(new Blockchain());
     const pendingTransactionsRef = useRef<Transaction[]>([]);
     const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
-    const [blocks, setBlocks] = useState<Block[]>([]);
+    const [blocks, setBlocks] = useState<MinedBlock[]>([]);
+
+    const ownTransactionIDRef = useRef(0);
+    const [ownTransactionIDState, setOwnTransactionIDState] = useState(0);
+
+    function setOwnTransactionID(transactionID: number) {
+        setOwnTransactionIDState(transactionID);
+        ownTransactionIDRef.current = transactionID;
+    }
+
+    function incrementOwnTransactionID() {
+        setOwnTransactionIDState(prev => prev + 1);
+    }
 
     function addPendingTransaction(transaction: Transaction) {
         // setPendingTransactions(prev => [...prev, transaction]);
@@ -37,8 +53,9 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setPendingTransactions(pendingTransactionsRef.current);
     }
 
-    function addBlock(block: Block, removeFromPending = false) {
-        setBlocks([...blocks, block]);
+    function addBlock(block: MinedBlock, removeFromPending = false) {
+        // setBlocks([...blocks, block]);
+        setBlocks(prev => [...prev, block]);
 
         let transactionToRemove: Transaction | null = null;
 
@@ -73,7 +90,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     return (
-        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions }}>
+        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID }}>
             {children}
         </BlockChainContext.Provider>
     )

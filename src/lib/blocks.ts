@@ -13,14 +13,7 @@ export class Block {
     transactions: Transaction[];
     
     constructor(transactions: Transaction[]) {
-        this.transactions = this.getIndexedTransactions(transactions);
-    }
-    
-    getIndexedTransactions(transactions: Transaction[]): Transaction[] {
-        return transactions.map((transaction, index) => {
-            transaction.index = index;
-            return transaction;
-        });
+        this.transactions = transactions;
     }
 
     getData(): BlockData {
@@ -40,8 +33,25 @@ export class MinedBlock extends Block {
         this.proofOfWork = proofOfWork;
     }
 
-    getIsValid(previousBlock: MinedBlock): boolean {
-        return true;
+    async getIsValid(previousBlock: MinedBlock, publicKeys: Map<string, string>): Promise<boolean> {
+        // return true;
+        return (await Promise.all(
+            this.transactions.map(transaction => {
+                const publicKey = publicKeys.get(transaction.sender);
+                if (!publicKey) {
+                    console.error("Could not find public key of sender:", transaction.sender);
+                    return false
+                };
+                console.log("public key of sender:", publicKey);
+                return transaction.verifyTransactionSignature(publicKey);
+            })
+        )).every(isValid => isValid);
+
+
+        // TODO: The following checks
+        // 1. The proof of work is correct
+        // 2. Check previous hash
+        // 3. Check the uniqueness of indices of transactions
     }
 
     getData(): MinedBlockData {

@@ -64,6 +64,7 @@ export class Transaction {
 
     async verifyTransactionSignature(publicKey: string): Promise<boolean> {
         if (!this.signMessage) {
+            console.log("false: no signature");
             return false;
         }
         const data = this.getDataWithoutSignature();
@@ -71,6 +72,9 @@ export class Transaction {
         const cleartextMessage = await readCleartextMessage({ cleartextMessage: this.signMessage });
     
         if (cleartextMessage.getText() != JSON.stringify(data)) {
+            console.log("false: text not equal");
+            console.log("cleartextMessage: ", cleartextMessage.getText());
+            console.log("data: ", JSON.stringify(data));
             return false;
         }
     
@@ -94,6 +98,7 @@ export class Transaction {
             return cleartextMessage.getText() == JSON.stringify(data);
         }
     
+        console.log("false: not verified");
         return false;
     }
 
