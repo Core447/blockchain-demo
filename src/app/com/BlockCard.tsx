@@ -1,30 +1,71 @@
-import { useOpenPGPContext } from "@/context/openpgp";
-import { MinedBlock } from "@/lib/blocks";
-import { Transaction } from "@/lib/transactions";
-import { useEffect, useMemo, useState } from "react"
+"use client"
+
+import { useOpenPGPContext } from "@/context/openpgp"
+import type { MinedBlock } from "@/lib/blocks"
+import { useState, useEffect } from "react"
+import { ChevronDown, ChevronUp, CheckCircle, XCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import TransactionOverview from "./BlockTransactionOverview"
 
 interface BlockCardProps {
-    block: MinedBlock
+  block: MinedBlock
 }
 
 export default function BlockCard({ block }: BlockCardProps) {
-    const [isValid, setIsValid] = useState(false);
-    const pgp = useOpenPGPContext();
+  const [isValid, setIsValid] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const pgp = useOpenPGPContext()
 
-    useEffect(() => {
-        async function load() {
-            setIsValid(await block.getIsValid(pgp.publicKeys));
-        }
-        load();
-    }, [block, pgp.publicKeys]);
+  useEffect(() => {
+    async function load() {
+      setIsValid(await block.getIsValid(pgp.publicKeys))
+    }
+    load()
+  }, [block, pgp.publicKeys])
 
-    return (
-        <div className="p-2 border rounded mb-2">
-            <p>N of transactions: {block.transactions.length}</p>
-            <h1 className="text-lg font-bold">Checks</h1>
-            <p>{isValid ? "Is valid" : "Is not valid"}</p>
-            <p>{block.previousBlock ? "Has previous block" : "Does not have previous block"}</p>
-            <p>Hash: {block.getHash().slice(0, 10)}</p>
-        </div>
-    )
+  const hashPreview = block.getHash().slice(0, 5)
+
+  return (
+    <Card className="mb-4">
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-lg font-bold flex items-center gap-2">
+            Block #{hashPreview}
+            {isValid ? (
+              <CheckCircle className="h-5 w-5 text-green-500" />
+            ) : (
+              <XCircle className="h-5 w-5 text-red-500" />
+            )}
+          </CardTitle>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm">
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between items-center text-sm text-muted-foreground mb-2">
+            <span>Transactions: {block.transactions.length}</span>
+            <Badge variant={isValid ? "success" : "destructive"}>{isValid ? "Valid" : "Invalid"}</Badge>
+          </div>
+          <CollapsibleContent className="space-y-2">
+            <p className="text-sm">Previous Block: {block.previousBlock ? "Yes" : "No"}</p>
+            <p className="text-sm">Full Hash: {block.getHash()}</p>
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold mb-2">Transactions</h3>
+              <div className="space-y-2">
+                {block.transactions.map((transaction, index) => (
+                  <TransactionOverview key={index} transaction={transaction} publicKeys={pgp.publicKeys} />
+                ))}
+              </div>
+            </div>
+          </CollapsibleContent>
+        </CardContent>
+      </Collapsible>
+    </Card>
+  )
 }
+

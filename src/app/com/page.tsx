@@ -146,7 +146,7 @@ export default function Page() {
                 conn.peer,
                 null
             )
-            // blockchain.incrementOwnTransactionID();
+            blockchain.incrementOwnTransactionID();
             await transaction.signTransaction(pgp.privateKey);
             console.log("sending:", transaction.getDataWithSignature());
             blockchain.addPendingTransaction(transaction);

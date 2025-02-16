@@ -44,6 +44,24 @@ export class MinedBlock extends Block {
             return false;
         }
 
+        const getTransactionsBeforeThisBlock = this.getAllTransactionsBeforeThisBlock();
+
+
+        const sendersInThisBlock = Array.from(new Set(this.transactions.map(transaction => transaction.sender)));
+        for (const sender of sendersInThisBlock) {
+            let previousTransactionsOfUser = getTransactionsBeforeThisBlock.filter(transaction => transaction.sender === sender);
+            const senderTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === sender);
+            for (const transaction of senderTransactionsOfThisBlock) {
+                if (!transaction.isValid(publicKeys, previousTransactionsOfUser)) {
+                    return false;
+                }
+                previousTransactionsOfUser.push(transaction);
+            }
+        }
+
+
+        return true;
+
 
 
         // return true;
@@ -123,6 +141,10 @@ export class MinedBlock extends Block {
         const matchingTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === userId);
         const transactionsBeforeThisBlock = this.previousBlock ? this.previousBlock.getTransactionsOfUserInChain(userId) : [];
         return [...transactionsBeforeThisBlock, ...matchingTransactionsOfThisBlock];
+    }
+
+    getAllTransactionsBeforeThisBlock(): Transaction[] {
+        return this.previousBlock ? this.previousBlock.getAllTransactionsInChain() : [];
     }
 
     getAllTransactionsInChain(): Transaction[] {
