@@ -3,7 +3,7 @@
 import { Blockchain } from "@/lib/blockchain";
 import { Block, MinedBlock, PendingBlock } from "@/lib/blocks";
 import { Transaction } from "@/lib/transactions";
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 
 type BlockChainContextType = {
     // blockchain: Blockchain
@@ -39,6 +39,54 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [blocks, setBlocks] = useState<MinedBlock[]>([]);
     const blocksRef = useRef<MinedBlock[]>([]);
 
+    const blocksSet = useRef(new Set<MinedBlock>());
+
+    function addBlockToSet(block: MinedBlock) {
+        blocksSet.current.add(block);
+
+        const mainBlockChain = getLongestChain();
+        console.log("blocks in chain", blocksSet.current.size);
+        console.log("new length of mainBlockChain", mainBlockChain.length);
+        blocksRef.current = mainBlockChain;
+
+
+
+
+        // blocksRef.current = [...blocksRef.current, block];
+
+
+        setBlocks(blocksRef.current);
+    }
+
+
+    // Merge stuff
+    function generateChainEndingAtBlock(block: MinedBlock): MinedBlock[] {
+        const chain: MinedBlock[] = [block];
+        let currentBlock = block;
+        while (currentBlock.previousBlock) {
+            chain.push(currentBlock);
+            currentBlock = currentBlock.previousBlock;
+        }
+        chain.reverse();
+        return chain;
+    }
+
+    function getLongestChain(): MinedBlock[] {
+        const longestChain: MinedBlock[] = [];
+        for (const block of Array.from(blocksSet.current)) {
+            const chain = generateChainEndingAtBlock(block);
+            if (chain.length > longestChain.length) {
+                longestChain.splice(0, longestChain.length);
+                longestChain.push(...chain);
+            }
+        }
+        return longestChain;
+    }
+
+
+
+
+
     const ownTransactionIDRef = useRef(0);
     const [ownTransactionIDState, setOwnTransactionIDState] = useState(0);
 
@@ -63,8 +111,9 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     function addBlock(block: MinedBlock, removeFromPending = false) {
         // setBlocks([...blocks, block]);
-        blocksRef.current.push(block);
-        setBlocks(blocksRef.current);
+        // blocksRef.current.push(block);
+        // setBlocks(blocksRef.current);
+        addBlockToSet(block);
         // setBlocks(prev => [...prev, block]);
 
         let transactionToRemove: Transaction | null = null;
