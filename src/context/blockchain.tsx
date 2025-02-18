@@ -61,10 +61,11 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Merge stuff
     function generateChainEndingAtBlock(block: MinedBlock): MinedBlock[] {
-        const chain: MinedBlock[] = [block];
-        let currentBlock = block;
-        while (currentBlock.previousBlock) {
+        const chain: MinedBlock[] = [];
+        let currentBlock : MinedBlock | null = block;
+        while (currentBlock) {
             chain.push(currentBlock);
+            //currentBlock = currentBlock.previousBlock;
             currentBlock = currentBlock.previousBlock;
         }
         chain.reverse();
