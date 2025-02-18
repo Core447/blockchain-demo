@@ -2,8 +2,11 @@
 
 import { Blockchain } from "@/lib/blockchain";
 import { Block, MinedBlock, PendingBlock } from "@/lib/blocks";
-import { Transaction } from "@/lib/transactions";
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { Transaction, transactionsFromTransactionsData } from "@/lib/transactions";
+import { createContext, use, useContext, useEffect, useRef, useState } from "react";
+import { useConnectionContext } from "./connectionContext";
+import { Payload } from "@/lib/requester";
+import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
 
 type BlockChainContextType = {
     // blockchain: Blockchain
@@ -20,6 +23,7 @@ type BlockChainContextType = {
     incrementOwnTransactionID: () => void
     getBlockByHash: (hash: string) => MinedBlock | null
     calculateBalance: (publicKeys: Map<string, string>, userId: string) => number
+    blocksSet: React.MutableRefObject<Set<MinedBlock>>
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -40,6 +44,34 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const blocksRef = useRef<MinedBlock[]>([]);
 
     const blocksSet = useRef(new Set<MinedBlock>());
+
+    const { requestersState } = useConnectionContext();
+
+    // getBlocksFromOtherClients
+    useEffect(() => {
+        console.log("bbc getting blocks from other clients", requestersState.size);
+        requestersState.forEach((requester, peerName) => {
+            requester.request<Payload<RequestAllBlocks>, Payload<ResponseAllBlocks>>({
+                type: "getAllBlocks",
+                payload: {
+                    blocks: Array.from(blocksSet.current)
+                }
+            }).then((response) => {
+                console.log("bbc got response from", peerName, response);
+                console.log(response);
+                for (const blockData of response.payload.blocks) {
+                    const block = new MinedBlock(
+                        null,
+                        blockData.proofOfWork,
+                        transactionsFromTransactionsData(blockData.transactions),
+                    )
+                    addBlockToSet(block);
+                }
+                
+            })
+        })
+
+    }, [requestersState]);
 
     function addBlockToSet(block: MinedBlock) {
         blocksSet.current.add(block);
@@ -198,7 +230,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
 
     return (
-        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef, calculateBalance }}>
+        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef, calculateBalance, blocksSet }}>
             {children}
         </BlockChainContext.Provider>
     )

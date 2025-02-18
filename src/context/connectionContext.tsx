@@ -15,6 +15,8 @@ type ConnectionContextType = {
     peerName: string;
     addDataHandler: (handler: (packet: Packet) => void) => void;
     requesters: Map<string, PeerRequester>;
+    requestersRef: React.MutableRefObject<Map<string, PeerRequester>>;
+    requestersState: Map<string, PeerRequester>;
     RRHandlers: Map<string, (payload: Payload) => void>;
     addRRHandler: (payloadType: string, handler: (payload: Payload) => Payload) => void;
     sendRRMessage<TRequest, TResponse>(peerName: string, payload: TRequest): (peerName: string, payload: Payload) => Promise<TResponse>;
@@ -40,6 +42,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const RRHandlers = useRef<Map<string, ((payload: Payload<unknown>) => Payload<unknown>)>>(new Map());
 
     const requesters = useRef<Map<string, PeerRequester>>(new Map());
+    const [requestersState, setRequestersState] = useState<Map<string, PeerRequester>>(new Map());
 
     
 
@@ -120,7 +123,10 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 console.error("No handler found for", payload.type);
                 throw new Error(`No handler for ${payload.type}`);
             })
+            console.log("bbc adding requester")
             requesters.current.set(conn.peer, requester);
+            setRequestersState(requesters.current);
+            console.log("bbc n", requesters.current.size)
             addConnection(conn);
         });
 
@@ -138,6 +144,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             connectedConsRef.current = connectedConsRef.current.filter(c => c.peer !== conn.peer);
             // Remove the requesters for this connection
             requesters.current.delete(conn.peer);
+            setRequestersState(requesters.current);
         });
 
         conn.on("error", (err) => {
@@ -220,7 +227,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }, [activePeers]);
 
     return (
-        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current, RRHandlers: RRHandlers.current, addRRHandler, sendRRMessage, connectedConsRef }}>
+        <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current, RRHandlers: RRHandlers.current, addRRHandler, sendRRMessage, connectedConsRef, requestersRef: requesters, requestersState }}>
             {children}
         </ConnectionContext.Provider>
     );

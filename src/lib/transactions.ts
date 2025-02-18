@@ -147,3 +147,7 @@ export class Transaction {
         return true;
     }
 }
+
+export function transactionsFromTransactionsData(transactionsData: SignedTransactionData[]): Transaction[] {
+    return transactionsData.map(transaction => new Transaction(transaction.index, transaction.amount, transaction.sender, transaction.receiver, transaction.signMessage));
+}

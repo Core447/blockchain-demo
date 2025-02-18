@@ -11,7 +11,7 @@ import { calculateHashOfPacket, isHashValid } from "@/lib/hash";
 import PacketUI from "./PacketUI";
 import { sendData } from "@/lib/communication";
 import { generateKey } from "openpgp";
-import { SignedTransactionData, Transaction } from "@/lib/transactions";
+import { SignedTransactionData, Transaction, transactionsFromTransactionsData } from "@/lib/transactions";
 import TransactionCard from "./TransactionCard";
 import { useBlockChainContext } from "@/context/blockchain";
 import { useConnectionContext } from "@/context/connectionContext";
@@ -90,15 +90,7 @@ export default function Page() {
             if (packet.type == "block") {
                 const blockData = packet.data as MinedBlockData;
 
-                const transactions = blockData.transactions.map(transaction => {
-                    return new Transaction(
-                        transaction.index,
-                        transaction.amount,
-                        transaction.sender,
-                        transaction.receiver,
-                        transaction.signMessage,
-                    )
-                })
+                const transactions = transactionsFromTransactionsData(blockData.transactions);
 
                 const previousBlock = blockchain.getBlockByHash(blockData.previousHash);
 
@@ -124,6 +116,18 @@ export default function Page() {
                 type: "publicKeyShare",
                 payload: {
                     publicKey: otherPublicKey
+                }
+            }
+        })
+
+        addRRHandler("getAllBlocks", (r) => {
+            console.log("sending all blocks")
+            const blocks = Array.from(blockchain.blocksSet.current).map(block => block.getData());
+
+            return {
+                type: "allBlocks",
+                payload: {
+                    blocks
                 }
             }
         })
