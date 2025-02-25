@@ -16,7 +16,7 @@ import TransactionCard from "./TransactionCard";
 import { useBlockChainContext } from "@/context/blockchain";
 import { useConnectionContext } from "@/context/connectionContext";
 import { useOpenPGPContext } from "@/context/openpgp";
-import { Block, MinedBlock, MinedBlockData } from "@/lib/blocks";
+import { Block, MinedBlock, MinedBlockData, PendingBlock } from "@/lib/blocks";
 import { Payload } from "@/lib/requester";
 import { RequestOtherPublicKey } from "@/lib/messages";
 import BlockCard from "./BlockCard";
@@ -101,7 +101,7 @@ export default function Page() {
                     return;
                 }
 
-                const block = new MinedBlock(previousBlock, blockData.proofOfWork, transactions);
+                const block = new MinedBlock(previousBlock, blockData.previousHash, blockData.proofOfWork, transactions);
                 console.log("received block", block);
                 blockchain.addBlock(block, true);
             }
@@ -197,6 +197,13 @@ export default function Page() {
         return blockchain.calculateBalance(pgp.publicKeysRef.current, peer.id);
     }, [blockchain, peer.id, pgp.publicKeysRef.current]);
 
+    function addFakeButCoherentBlockToOwnChain() {
+        const pendingBlock = new PendingBlock([]);
+        const lastBlock = blockchain.blocksRef.current[blockchain.blocks.length - 1]
+        const minedBlock = pendingBlock.mine(lastBlock);
+        blockchain.addBlock(minedBlock, true);
+    }
+
 
     return (
         <div className="p-4">
@@ -212,6 +219,7 @@ export default function Page() {
                 {/* <Button onClick={broadcastPublicKey} className="mb-4">Broadcast Public Key</Button> */}
                 <Button onClick={mineLatestTransaction} className="mb-4">Mine Latest Transaction</Button>
                 <Button onClick={requestPublicKeys} className="mb-4">Request Public Keys</Button>
+                <Button onClick={addFakeButCoherentBlockToOwnChain} className="mb-4">Add Fake But Coherent Block To Own Chain</Button>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

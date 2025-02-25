@@ -3,7 +3,7 @@
 import { Blockchain } from "@/lib/blockchain";
 import { Block, MinedBlock, PendingBlock } from "@/lib/blocks";
 import { Transaction, transactionsFromTransactionsData } from "@/lib/transactions";
-import { createContext, use, useContext, useEffect, useRef, useState } from "react";
+import { createContext, use, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useConnectionContext } from "./connectionContext";
 import { Payload } from "@/lib/requester";
 import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
@@ -45,35 +45,22 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const blocksSet = useRef(new Set<MinedBlock>());
 
-    const { requestersState } = useConnectionContext();
+    const { requestersState, peerName: PN } = useConnectionContext();
 
-    // getBlocksFromOtherClients
-    useEffect(() => {
-        console.log("bbc getting blocks from other clients", requestersState.size);
-        requestersState.forEach((requester, peerName) => {
-            requester.request<Payload<RequestAllBlocks>, Payload<ResponseAllBlocks>>({
-                type: "getAllBlocks",
-                payload: {
-                    blocks: Array.from(blocksSet.current)
-                }
-            }).then((response) => {
-                console.log("bbc got response from", peerName, response);
-                console.log(response);
-                for (const blockData of response.payload.blocks) {
-                    const block = new MinedBlock(
-                        null,
-                        blockData.proofOfWork,
-                        transactionsFromTransactionsData(blockData.transactions),
-                    )
-                    addBlockToSet(block);
-                }
-                
-            })
-        })
+    const getLongestChain = useCallback(() => {
+        const longestChain: MinedBlock[] = [];
+        for (const block of Array.from(blocksSet.current)) {
+            const chain = generateChainEndingAtBlock(block);
+            if (chain.length > longestChain.length) {
+                longestChain.splice(0, longestChain.length);
+                longestChain.push(...chain);
+            }
+        }
+        return longestChain;
+    }, []);
 
-    }, [requestersState]);
-
-    function addBlockToSet(block: MinedBlock) {
+    const addBlockToSet = useCallback((block: MinedBlock) => {
+        console.log("adding block to set");
         blocksSet.current.add(block);
 
         const mainBlockChain = getLongestChain();
@@ -88,7 +75,49 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
 
         setBlocks(blocksRef.current);
-    }
+    }, [getLongestChain]);
+
+    const setPrevBlockRefs = useCallback(() => {
+        for (const block of blocksRef.current) {
+            block.previousBlock = getBlockByHash(block.getHash());
+        }
+        setBlocks(blocksRef.current);
+    }, []);
+
+    // getBlocksFromOtherClients
+    useEffect(() => {
+        console.log("bbc getting blocks from other clients", requestersState.size);
+        requestersState.forEach((requester, peerName) => {
+            if (peerName == PN) {
+                alert("skipping own peer");
+            }
+            requester.request<Payload<RequestAllBlocks>, Payload<ResponseAllBlocks>>({
+                type: "getAllBlocks",
+                payload: {
+                    blocks: Array.from(blocksSet.current)
+                }
+            }).then((response) => {
+                console.log("bbc got response from", peerName, response);
+                if (!response) return;
+                if (!response.payload) return;
+                console.log(response);
+                for (const blockData of response.payload.blocks) {
+                    const block = new MinedBlock(
+                        null,
+                        blockData.previousHash,
+                        blockData.proofOfWork,
+                        transactionsFromTransactionsData(blockData.transactions),
+                    )
+                    addBlockToSet(block);
+                }
+                setPrevBlockRefs();
+                
+            })
+        })
+
+    }, [requestersState, addBlockToSet, PN, setPrevBlockRefs]);
+
+    
 
 
     // Merge stuff
@@ -98,23 +127,14 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         while (currentBlock) {
             chain.push(currentBlock);
             //currentBlock = currentBlock.previousBlock;
-            currentBlock = currentBlock.previousBlock;
+            // currentBlock = currentBlock.previousBlock;
+            currentBlock = getBlockByHash(currentBlock.previousBlockHash);
         }
         chain.reverse();
         return chain;
     }
 
-    function getLongestChain(): MinedBlock[] {
-        const longestChain: MinedBlock[] = [];
-        for (const block of Array.from(blocksSet.current)) {
-            const chain = generateChainEndingAtBlock(block);
-            if (chain.length > longestChain.length) {
-                longestChain.splice(0, longestChain.length);
-                longestChain.push(...chain);
-            }
-        }
-        return longestChain;
-    }
+    
 
 
 
@@ -129,6 +149,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     function incrementOwnTransactionID() {
+        ownTransactionIDRef.current++;
         setOwnTransactionIDState(prev => prev + 1);
     }
 
@@ -143,6 +164,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
 
     function addBlock(block: MinedBlock, removeFromPending = false) {
+        console.log("adding block", block);
         // setBlocks([...blocks, block]);
         // blocksRef.current.push(block);
         // setBlocks(blocksRef.current);
@@ -154,7 +176,6 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (removeFromPending) {
             // setPendingTransactions(prev => prev.filter(t => !block.transactions.includes(t)));
             console.log("pending transactions:", pendingTransactionsRef);
-            console.log("is Eq:", pendingTransactionsRef.current[0].isEqual(block.transactions[0]));
 
 
             pendingTransactionsRef.current.forEach((pendingTransaction, index) => {
@@ -179,7 +200,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     function mineBlockFromTransactions(transactions: Transaction[]): MinedBlock {
         const block = new PendingBlock(transactions);
         const latestBlock = blocks[blocks.length - 1];
-        return block.mine(latestBlock);
+        return block.mine(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null);
     }
 
     function getAllTransactionsInChain() {
