@@ -127,7 +127,7 @@ export class Transaction {
     isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
         console.log("checking with n previous transactions:", previousTransactionsOfUser.length);
         if (!this.checkIfIndexIsUnique(previousTransactionsOfUser)) {
-            console.log("false: index not unique");
+            console.log("false: index not unique, index: ", this.index);
             return false;
         }
         if (!this.sender) {
