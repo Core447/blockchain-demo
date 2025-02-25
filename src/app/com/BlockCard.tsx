@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import TransactionOverview from "./BlockTransactionOverview"
+import ValidInvalidBadge from "@/components/common/ValidInvalidBadge"
 
 interface BlockCardProps {
   block: MinedBlock
@@ -16,11 +17,17 @@ interface BlockCardProps {
 
 export default function BlockCard({ block }: BlockCardProps) {
   const [isValid, setIsValid] = useState(false)
+  const [isHashValid, setIsHashValid] = useState(false)
+  const [areTransactionsValid, setAreTransactionsValid] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const pgp = useOpenPGPContext()
 
   useEffect(() => {
     async function load() {
+      setIsHashValid(await block.isHashValid())
+      setAreTransactionsValid(await block.areTransactionsValid(pgp.publicKeys))
+
+
       setIsValid(await block.getIsValid(pgp.publicKeys))
     }
     load()
@@ -53,6 +60,14 @@ export default function BlockCard({ block }: BlockCardProps) {
           </div>
           <CollapsibleContent className="space-y-2">
             <p className="text-sm">Previous Block: {block.previousBlock ? "Yes" : "No"}</p>
+            <div className="flex justify-between items-center">
+              <p>Hash</p>
+              <ValidInvalidBadge isValid={isHashValid} />
+            </div>
+            <div className="flex justify-between items-center">
+              <p>Transactions</p>
+              <ValidInvalidBadge isValid={areTransactionsValid} />
+            </div>
             <p className="text-sm">Full Hash: {block.getHash()}</p>
             <div className="mt-4">
               <h3 className="text-lg font-semibold mb-2">Transactions</h3>

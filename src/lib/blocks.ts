@@ -6,7 +6,7 @@ export interface BlockData {
 }
 
 export interface MinedBlockData extends BlockData {
-    previousHash: string;
+    previousHash: string | null;
     proofOfWork: number;
 }
 
@@ -29,27 +29,28 @@ export class Block {
 }
 
 export class MinedBlock extends Block {
+    previousBlockHash: string | null;
     previousBlock: MinedBlock | null;
     proofOfWork: number;
 
-    constructor(previousBlock: MinedBlock | null, proofOfWork: number, transactions: Transaction[]) {
+    constructor(previousBlock: MinedBlock | null, previousBlockHash: string | null, proofOfWork: number, transactions: Transaction[]) {
         super(transactions);
         this.previousBlock = previousBlock;
         this.proofOfWork = proofOfWork;
+        this.previousBlockHash = previousBlockHash;
     }
 
-    async getIsValid(publicKeys: Map<string, string>): Promise<boolean> {
-        // Check hash
-        if (!this.getHash().startsWith("000")) {
-            return false;
-        }
+    async isHashValid(): Promise<boolean> {
+        return this.getHash().startsWith("000");
+    }
 
+    async areTransactionsValid(publicKeys: Map<string, string>): Promise<boolean> {
         const getTransactionsBeforeThisBlock = this.getAllTransactionsBeforeThisBlock();
 
-
         const sendersInThisBlock = Array.from(new Set(this.transactions.map(transaction => transaction.sender)));
+
         for (const sender of sendersInThisBlock) {
-            let previousTransactionsOfUser = getTransactionsBeforeThisBlock.filter(transaction => transaction.sender === sender);
+            const previousTransactionsOfUser = getTransactionsBeforeThisBlock.filter(transaction => transaction.sender === sender);
             const senderTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === sender);
             for (const transaction of senderTransactionsOfThisBlock) {
                 if (!transaction.isValid(publicKeys, previousTransactionsOfUser)) {
@@ -58,6 +59,21 @@ export class MinedBlock extends Block {
                 previousTransactionsOfUser.push(transaction);
             }
         }
+
+        return true;
+    }
+
+    async getIsValid(publicKeys: Map<string, string>): Promise<boolean> {
+        // Check hash
+       if (!await this.isHashValid()) {
+           return false;
+       }
+
+       if(!await this.areTransactionsValid(publicKeys)) {
+        return false;
+       }
+
+       
 
 
         return true;
@@ -118,7 +134,7 @@ export class MinedBlock extends Block {
     getData(): MinedBlockData {
         return {
             ...super.getData(),
-            previousHash: this.previousBlock ? this.previousBlock.getHash() : "",
+            previousHash: this.previousBlockHash,
             proofOfWork: this.proofOfWork
         }
     }
@@ -154,12 +170,12 @@ export class MinedBlock extends Block {
 }
 
 export class PendingBlock extends Block {
-    mine(previousBlock: MinedBlock): MinedBlock {
+    mine(previousBlock: MinedBlock | null, previousBlockHash: string | null): MinedBlock {
         let proofOfWork = 0;
-        let minedBlock = new MinedBlock(previousBlock, proofOfWork, this.transactions);
+        let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         while (!minedBlock.getHash().startsWith("000")) {
             proofOfWork++;
-            minedBlock = new MinedBlock(previousBlock, proofOfWork, this.transactions);
+            minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         }
 
         return minedBlock;
