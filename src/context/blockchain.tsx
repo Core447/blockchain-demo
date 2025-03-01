@@ -24,6 +24,7 @@ type BlockChainContextType = {
     getBlockByHash: (hash: string) => MinedBlock | null
     calculateBalance: (publicKeys: Map<string, string>, userId: string) => number
     blocksSet: React.MutableRefObject<Set<MinedBlock>>
+    clearBlocks: () => void
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -163,6 +164,11 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return blocksRef.current.find(block => block.getHash() == hash) ?? null;
     }
 
+    function clearBlocks() {
+        blocksRef.current = [];
+        setBlocks([]);
+    }
+
     function addBlock(block: MinedBlock, removeFromPending = false) {
         console.log("adding block", block);
         // setBlocks([...blocks, block]);
@@ -251,7 +257,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
 
     return (
-        <BlockChainContext.Provider value={{ pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef, calculateBalance, blocksSet }}>
+        <BlockChainContext.Provider value={{ clearBlocks, pendingTransactions, blocks, addPendingTransaction, addBlock, mineBlockFromTransactions, setPendingTransactions, ownTransactionIDState, ownTransactionIDRef, setOwnTransactionID, incrementOwnTransactionID, getBlockByHash, blocksRef, calculateBalance, blocksSet }}>
             {children}
         </BlockChainContext.Provider>
     )

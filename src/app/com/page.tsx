@@ -5,7 +5,7 @@ import "react-json-pretty/themes/monikai.css"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Coins, Pickaxe, Key, PlusCircle, Users, Database, Clock } from "lucide-react"
+import { Coins, Pickaxe, Key, PlusCircle, Users, Database, Clock, Trash2 } from "lucide-react"
 import { sendData } from "@/lib/communication"
 import { type SignedTransactionData, Transaction, transactionsFromTransactionsData } from "@/lib/transactions"
 import { useBlockChainContext } from "@/context/blockchain"
@@ -187,6 +187,10 @@ export default function Page() {
     blockchain.addBlock(minedBlock, true)
   }
 
+  function clearOwnChain() {
+    blockchain.clearBlocks()
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <Card className="shadow-md">
@@ -247,6 +251,11 @@ export default function Page() {
                 <Button onClick={addFakeButCoherentBlockToOwnChain} className="w-full justify-start" variant="outline">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Add Fake But Coherent Block
+                </Button>
+
+                <Button onClick={clearOwnChain} className="w-full justify-start" variant="outline">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clear Own Chain
                 </Button>
               </div>
             </div>
