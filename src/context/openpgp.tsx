@@ -8,7 +8,7 @@ import { sendData } from "@/lib/communication";
 import { RequestOtherPublicKey, ResponseOtherPublicKey } from "@/lib/messages";
 import { Payload } from "@/lib/requester";
 
-type OpenPGPContextType = {
+export type OpenPGPContextType = {
     privateKey: string;
     publicKey: string;
     publicKeys: Map<string, string>;

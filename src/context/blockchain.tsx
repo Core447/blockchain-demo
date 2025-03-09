@@ -8,7 +8,7 @@ import { useConnectionContext } from "./connectionContext";
 import { Payload } from "@/lib/requester";
 import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
 
-type BlockChainContextType = {
+export type BlockChainContextType = {
     // blockchain: Blockchain
     pendingTransactions: Transaction[]
     blocks: MinedBlock[]

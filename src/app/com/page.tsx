@@ -16,6 +16,7 @@ import type { Payload } from "@/lib/requester"
 import type { RequestOtherPublicKey } from "@/lib/messages"
 import TransactionCard from "./TransactionCard"
 import BlockCard from "./BlockCard"
+import ConnCard from "@/components/specific/main/connCard"
 
 export type Data = {}
 
@@ -273,14 +274,7 @@ export default function Page() {
             <CardContent className="space-y-2 h-[300px] overflow-y-auto p-4">
               {connectedCons.length > 0 ? (
                 connectedCons.map((conn, index) => (
-                  <div key={index} className="p-2 border rounded flex items-center justify-between">
-                    <span className="font-mono text-sm">{conn.peer}</span>
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${conn.open ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"} whitespace-nowrap`}
-                    >
-                      {conn.open ? "Open" : "Closed"}
-                    </span>
-                  </div>
+                  <ConnCard conn={conn} key={index} blockchain={blockchain} pgp={pgp} />
                 ))
               ) : (
                 <div className="text-center text-muted-foreground py-4">No active connections</div>
