@@ -40,6 +40,9 @@ export interface BroadcastOtherPublicKeys {
 }
 
 export default function Page() {
+  // return (
+  //   <div></div>
+  // )
   const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([])
 
   const blockchain = useBlockChainContext()
@@ -47,6 +50,7 @@ export default function Page() {
 
   const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
   const areDataHandlersSet = useRef(false)
+
 
   useEffect(() => {
     if (areDataHandlersSet.current) {
