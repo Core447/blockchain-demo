@@ -63,11 +63,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
     }, []);
 
-    const getOtherPeerNames = async (): Promise<string[]> => {
-        const response = await fetch("http://localhost:9000/blockchain/peerjs/peers");
+    const getOtherPeerNames = useCallback(async (): Promise<string[]> => {
+        const response = await fetch(`https://${process.env.NEXT_PUBLIC_PEERJS_SERVER_IP}/blockchain/peerjs/peers`);
         const data = await response.json();
         return data.filter((p: string) => p !== peerName);
-    };
+    }, [peerName]);
 
     const { data: activePeers = [] } = useQuery({
         queryKey: ['peers'],
@@ -157,11 +157,14 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const peer = useMemo(() => {
+        console.log("creating peer", "peerName: ", peerName);
         const peer = new Peer(peerName, {
-            host: "localhost",
-            port: 9000,
+            // host: process.env.NEXT_PUBLIC_PEERJS_SERVER_IP,
+            host: "peerjs.blockchain.core447.com",
+            // port: 443,
             path: "/blockchain",
             debug: 3,
+            secure: true
         });
 
         peer.on("open", () => {

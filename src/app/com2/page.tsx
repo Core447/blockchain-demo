@@ -7,7 +7,7 @@ export default function Page() {
     const clientsQuery = useQuery({
         queryKey: ['clients'],
         queryFn: async () => {
-            const res = await fetch('http://localhost:9000/blockchain/peerjs/peers');
+            const res = await fetch('https://peerjs.blockchain.core447.com/blockchain/peerjs/peers');
             return res.json();
         },
         refetchInterval: 1000
