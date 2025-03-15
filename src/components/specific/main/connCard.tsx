@@ -35,6 +35,7 @@ export default function ConnCard({ conn, blockchain, pgp }: ConnCardProps) {
   }, [blockchain, pgp.publicKeys, conn.peer])
 
   const handleSendMoney = async () => {
+    if (!peer) { return }
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       toast.error("Invalid amount", {
         description: "Please enter a valid positive number",

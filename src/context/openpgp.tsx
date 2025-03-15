@@ -51,6 +51,7 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }, [peerName]);
 
     const broadcastPublicKey = useCallback(() => {
+        if (!peer) { return }
         console.info("broadcasting public key");
         const data: PublicKeyShare = {
             publicKey: publicKey
@@ -59,6 +60,7 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }, [publicKey, peer, connectedCons]);
 
     const broadcastOtherPublicKeys = useCallback(() => {
+        if (!peer) { return }
         console.info("broadcasting other public keys");
         const otherPublicKeys = new Map<string, string>(publicKeysRef.current);
         otherPublicKeys.delete(peerName);

@@ -9,7 +9,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator";
 
 type ConnectionContextType = {
-    peer: Peer;
+    peer: Peer | undefined;
     connectedCons: DataConnection[];
     connectedConsRef: React.MutableRefObject<DataConnection[]>;
     peerName: string;
@@ -43,6 +43,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const requesters = useRef<Map<string, PeerRequester>>(new Map());
     const [requestersState, setRequestersState] = useState<Map<string, PeerRequester>>(new Map());
+    
 
     
 
@@ -159,6 +160,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const peer = useMemo(() => {
+        if (typeof window === 'undefined') return;
         console.log("creating peer", "peerName: ", peerName);
         const peer = new Peer(peerName, {
             host: process.env.NEXT_PUBLIC_PEERJS_SERVER_IP,
@@ -201,6 +203,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Set up the connection listener only once
     useEffect(() => {
+        if (!peer) return;
         const connectionHandler = (conn: DataConnection) => {
             setupConnectionHandlers(conn);
         };

@@ -133,6 +133,7 @@ export default function Page() {
   ])
 
   async function sendCurrencyToEveryone() {
+    if (!peer) { return }
     console.log(`sending to all ${connectedCons.length} connections`)
     const amount = Math.round(Math.random() * 1000)
     for (const conn of connectedCons) {
@@ -152,6 +153,7 @@ export default function Page() {
   }
 
   function mineLatestTransaction() {
+    if (!peer) { return }
     const minedBlock = blockchain.mineBlockFromTransactions(blockchain.pendingTransactions.slice(0, 1))
 
     console.log("mined block:", minedBlock)
@@ -185,8 +187,9 @@ export default function Page() {
   }
 
   const ownBalance = useMemo(() => {
+    if (!peer) { return }
     return blockchain.calculateBalance(pgp.publicKeysRef.current, peer.id)
-  }, [blockchain, peer.id, pgp.publicKeysRef.current])
+  }, [blockchain, peer?.id, pgp.publicKeysRef.current])
 
   function addFakeButCoherentBlockToOwnChain() {
     const pendingBlock = new PendingBlock([])
@@ -206,7 +209,7 @@ export default function Page() {
           <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4">
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">Peer ID:</span>
-              <span className="font-mono bg-muted px-2 py-1 rounded text-sm break-all">{peer.id}</span>
+              <span className="font-mono bg-muted px-2 py-1 rounded text-sm break-all">{peer?.id}</span>
             </div>
 
             <div className="flex items-center gap-2">
