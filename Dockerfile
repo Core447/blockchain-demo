@@ -30,6 +30,8 @@ COPY . .
 # ENV NEXT_TELEMETRY_DISABLED=1
 
 ENV NEXT_PUBLIC_PEERJS_SERVER_IP=peerjs.blockchain.core447.com
+ENV NEXT_PUBLIC_PEERJS_SERVER_PORT=
+ENV NEXT_PUBLIC_PEERJS_SERVER_SECURE=true
 
 RUN \
   if [ -f yarn.lock ]; then yarn run build; \
