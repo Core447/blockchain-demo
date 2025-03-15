@@ -163,8 +163,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const peer = new Peer(peerName, {
             host: process.env.NEXT_PUBLIC_PEERJS_SERVER_IP,
             //host: "peerjs.blockchain.core447.com",
-            port: 9000,
-            //port: process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT ? parseInt(process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT) : undefined,
+            port: process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT ? parseInt(process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT) : undefined,
             path: "/blockchain",
             debug: 3,
             secure: process.env.NEXT_PUBLIC_PEERJS_SERVER_SECURE === "true",
