@@ -19,7 +19,7 @@ type ConnectionContextType = {
     requestersState: Map<string, PeerRequester>;
     RRHandlers: Map<string, (payload: Payload) => void>;
     addRRHandler: (payloadType: string, handler: (payload: Payload) => Payload) => void;
-    sendRRMessage<TRequest, TResponse>(peerName: string, payload: TRequest): (peerName: string, payload: Payload) => Promise<TResponse>;
+    sendRRMessage<TRequest, TResponse>(peerName: string, payload: TRequest): Promise<TResponse>;
 }
 
 const ConnectionContext = createContext<ConnectionContextType | null>(null);

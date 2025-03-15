@@ -77,24 +77,25 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
         console.log("asking", connectedConsRef.current.length, "connections for public key");
         const answers = await Promise.all(connectedConsRef.current.map(async (conn) => {
             console.log("sending request to", conn.peer);
-            const r = sendRRMessage<Payload<RequestOtherPublicKey>, Payload<ResponseOtherPublicKey>>(conn.peer, {
+            const r = await sendRRMessage<Payload<RequestOtherPublicKey>, Payload<ResponseOtherPublicKey>>(conn.peer, {
                 type: "requestOtherPublicKey",
                 payload: {
                     peer: peerName
                 }
             }
         )
+        return r;
         }));
         console.log("answers:", answers);
 
         if (answers.length === 0) {
-            return;
+            return [];
         }
 
-        return answers[0].payload.publicKey;
+        // return answers[0].payload.publicKey;
 
 
-        return answers;
+        return answers.map(answer => answer.payload);
     }, []);
 
 

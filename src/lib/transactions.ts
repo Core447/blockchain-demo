@@ -3,7 +3,7 @@ import { clear } from "console";
 import { createCleartextMessage, readCleartextMessage, readKey, readPrivateKey, sign, verify } from "openpgp";
 
 export interface UnsignedTransactionData {
-    index: number | null;
+    index: number;
     amount: number;
     sender: string;
     receiver: string;

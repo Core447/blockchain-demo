@@ -9,7 +9,7 @@ export interface RRMessage<T = unknown> { // Request Response Message = RRMessag
     type: 'request' | 'response';
     payloadType?: string;
     requestId: number;
-    payload: Payload<T>;
+    payload: T;
     error?: string;
 }
 

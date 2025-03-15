@@ -1,6 +1,5 @@
 "use client";
 
-import { Blockchain } from "@/lib/blockchain";
 import { Block, MinedBlock, PendingBlock } from "@/lib/blocks";
 import { Transaction, transactionsFromTransactionsData } from "@/lib/transactions";
 import { createContext, use, useCallback, useContext, useEffect, useRef, useState } from "react";
@@ -21,7 +20,7 @@ export type BlockChainContextType = {
     ownTransactionIDRef: React.MutableRefObject<number>
     setOwnTransactionID: (transactionID: number) => void
     incrementOwnTransactionID: () => void
-    getBlockByHash: (hash: string) => MinedBlock | null
+    getBlockByHash: (hash: string | null) => MinedBlock | null
     calculateBalance: (publicKeys: Map<string, string>, userId: string) => number
     blocksSet: React.MutableRefObject<Set<MinedBlock>>
     clearBlocks: () => void
@@ -160,7 +159,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setPendingTransactions(pendingTransactionsRef.current);
     }
 
-    function getBlockByHash(hash: string): MinedBlock | null {
+    function getBlockByHash(hash: string | null): MinedBlock | null {
         return blocksRef.current.find(block => block.getHash() == hash) ?? null;
     }
 
@@ -199,7 +198,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         // setPendingTransactions(prev => prev.filter(t => !transactionToRemove.isEqual(t)));
         console.log("transaction to remove:", transactionToRemove);
-        pendingTransactionsRef.current = pendingTransactionsRef.current.filter(t => !transactionToRemove.isEqual(t));
+        pendingTransactionsRef.current = pendingTransactionsRef.current.filter(t => !transactionToRemove?.isEqual(t));
         setPendingTransactions(pendingTransactionsRef.current);
     }
 

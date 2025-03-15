@@ -18,7 +18,7 @@ import TransactionCard from "./TransactionCard"
 import BlockCard from "./BlockCard"
 import ConnCard from "@/components/specific/main/connCard"
 
-export type Data = {}
+export type Data = object
 
 export interface Message extends Data {
   message: string
@@ -67,6 +67,9 @@ export default function Page() {
       }
       if (packet.type == "transaction") {
         const data = packet.data as SignedTransactionData
+        if (!data.index) {
+          return
+        }
         const transaction = new Transaction(data.index, data.amount, data.sender, data.receiver, data.signMessage)
         blockchain.addPendingTransaction(transaction)
       }
@@ -188,7 +191,7 @@ export default function Page() {
   function addFakeButCoherentBlockToOwnChain() {
     const pendingBlock = new PendingBlock([])
     const lastBlock = blockchain.blocksRef.current[blockchain.blocks.length - 1]
-    const minedBlock = pendingBlock.mine(lastBlock)
+    const minedBlock = pendingBlock.mine(lastBlock, null)
     blockchain.addBlock(minedBlock, true)
   }
 
