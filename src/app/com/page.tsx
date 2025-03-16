@@ -202,6 +202,16 @@ export default function Page() {
     blockchain.clearBlocks()
   }
 
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) {
+    return null
+  }
+
   return (
     <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <Card className="shadow-md">
