@@ -192,6 +192,7 @@ export default function Page() {
   }, [blockchain, peer?.id, pgp.publicKeysRef.current])
 
   function addFakeButCoherentBlockToOwnChain() {
+    if (!peer) { return }
     const pendingBlock = new PendingBlock([])
     const lastBlock = blockchain.blocksRef.current[blockchain.blocks.length - 1]
     const minedBlock = pendingBlock.mine(lastBlock, null)

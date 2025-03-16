@@ -164,6 +164,11 @@ export class MinedBlock extends Block {
     }
 
     getAllTransactionsInChain(): Transaction[] {
+        console.log("prev", this.previousBlock);
+        if (this.previousBlock == this) {
+            // should not happen
+            return [];
+        }
         const transactionsBeforeThisBlock = this.previousBlock ? this.previousBlock.getAllTransactionsInChain() : [];
         return [...transactionsBeforeThisBlock, ...this.transactions];
     }

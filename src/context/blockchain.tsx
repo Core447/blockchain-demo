@@ -193,8 +193,8 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
 
         if (!transactionToRemove) {
-            console.log("error");
-            return;
+            console.log("no transaction to remove, continuing...");
+            // return;
         }
         // setPendingTransactions(prev => prev.filter(t => !transactionToRemove.isEqual(t)));
         console.log("transaction to remove:", transactionToRemove);
