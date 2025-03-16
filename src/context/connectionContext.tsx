@@ -37,23 +37,20 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const connectedConsRef = useRef<DataConnection[]>([]);
     // Use a ref to track which connections we've already set up listeners for
     const handledConnections = useRef(new Set<string>());
-    // const [dataHandlers, setDataHandlers] = useState<((packet: Packet) => void)[]>([]);
     const dataHandlers = useRef<((packet: Packet) => void)[]>([]);
     const RRHandlers = useRef<Map<string, ((payload: Payload<unknown>) => Payload<unknown>)>>(new Map());
 
     const requesters = useRef<Map<string, PeerRequester>>(new Map());
     const [requestersState, setRequestersState] = useState<Map<string, PeerRequester>>(new Map());
     
-
+    // Ref to store the Peer instance
+    const peerRef = useRef<Peer | null>(null);
     
-
     function addDataHandler(handler: (packet: Packet) => void) {
-        // setDataHandlers(prev => [...prev, handler]);
         dataHandlers.current.push(handler);
     }
 
     function addRRHandler(payloadType: string, handler: (payload: Payload) => Payload) {
-        // setDataHandlers(prev => [...prev, handler]);
         RRHandlers.current.set(payloadType, handler);
     }
 
@@ -65,9 +62,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const getOtherPeerNames = useCallback(async (): Promise<string[]> => {
-        const protocol = process.env.NEXT_PUBLIC_PEERJS_SERVER_SECURE === "true" ? "https" : "http";
-        const port = process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT ? `:${process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT}` : "";
-        const response = await fetch(`${protocol}://${process.env.NEXT_PUBLIC_PEERJS_SERVER_IP}${port}/blockchain/peerjs/peers`);
+        const response = await fetch(`http://localhost:9000/blockchain/peerjs/peers`);
         const data = await response.json();
         return data.filter((p: string) => p !== peerName);
     }, [peerName]);
@@ -109,14 +104,6 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             console.log(`Connection opened with ${conn.peer}`);
             const requester = new PeerRequester(conn);
             requester.onRequest<Payload, Payload>((payload) => {
-                // if (payload.type === "requestOtherPublicKey") {
-                //     const data: RequestOtherPublicKey = payload.payload;
-                //     const response: Payload = {
-                //         type: "returnOtherPublicKey",
-                //         payload: "this is the other public key"
-                //     }
-                //     return response
-                // }
                 // find handler
                 console.log("Received request", payload);
                 const handler = RRHandlers.current.get(payload.type);
@@ -159,47 +146,75 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     }, []);
 
+    // Use useMemo with peerRef to prevent duplicate peer creation
     const peer = useMemo(() => {
         if (typeof window === 'undefined') return;
-        console.log("creating peer", "peerName: ", peerName);
-        const peer = new Peer(peerName, {
-            host: process.env.NEXT_PUBLIC_PEERJS_SERVER_IP,
-            //host: "peerjs.blockchain.core447.com",
-            port: process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT ? parseInt(process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT) : undefined,
+        
+        // Return existing peer if already created with the same name
+        if (peerRef.current && peerRef.current.id === peerName) {
+            console.log("Reusing existing peer instance", peerName);
+            return peerRef.current;
+        }
+        
+        console.log("Creating new peer", "peerName: ", peerName);
+        const newPeer = new Peer(peerName, {
+            host: "localhost",
+            port: 9000,
             path: "/blockchain",
             debug: 3,
-            secure: process.env.NEXT_PUBLIC_PEERJS_SERVER_SECURE === "true",
+            secure: false
         });
 
-        peer.on("open", () => {
-            console.log(`Peer opened with ID: ${peer.id}`);
-            loadConnections();
+        newPeer.on("open", () => {
+            console.log(`Peer opened with ID: ${newPeer.id}`);
         });
 
-        peer.on("error", (err) => {
+        newPeer.on("error", (err) => {
             console.error("Peer error:", err);
         });
 
-        peer.on("disconnected", () => {
+        newPeer.on("disconnected", () => {
             console.log("Peer disconnected. Attempting to reconnect...");
-            peer.reconnect();
+            newPeer.reconnect();
         });
+        
+        // Store the peer instance in the ref
+        peerRef.current = newPeer;
+        return newPeer;
+    }, [peerName]);
 
+    // Load initial connections after component is mounted
+    useEffect(() => {
+        if (!peer) return;
+        
         async function loadConnections() {
-            const initialOtherPeerNames = await getOtherPeerNames();
-            initialOtherPeerNames.forEach((otherPeerName) => {
-                // Only create a connection if we haven't handled it yet
-                if (!handledConnections.current.has(otherPeerName)) {
-                    const conn = peer.connect(otherPeerName, {
-                        reliable: true,
-                    });
-                    setupConnectionHandlers(conn);
-                }
-            });
+            try {
+                const initialOtherPeerNames = await getOtherPeerNames();
+                initialOtherPeerNames.forEach((otherPeerName) => {
+                    // Only create a connection if we haven't handled it yet
+                    if (!handledConnections.current.has(otherPeerName)) {
+                        const conn = peer!.connect(otherPeerName, {
+                            reliable: true,
+                        });
+                        setupConnectionHandlers(conn);
+                    }
+                });
+            } catch (error) {
+                console.error("Error loading connections:", error);
+            }
         }
-
-        return peer;
-    }, [peerName, setupConnectionHandlers]);
+        
+        // Only load connections after peer is open
+        if (peer.open) {
+            loadConnections();
+        } else {
+            peer.on("open", loadConnections);
+        }
+        
+        return () => {
+            peer.off("open", loadConnections);
+        };
+    }, [peer, getOtherPeerNames, setupConnectionHandlers]);
 
     // Set up the connection listener only once
     useEffect(() => {
@@ -218,21 +233,21 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, [peer, setupConnectionHandlers]);
 
     useEffect(() => {
-            setConnectedCons(prev => {
-                return prev.filter(conn => {
-                    const isPeerActive = activePeers.includes(conn.peer);
-                    const isConnectionOpen = conn.open;
-                    
-                    if (!isPeerActive || !isConnectionOpen) {
-                        console.log(`Removing disconnected peer: ${conn.peer}`);
-                        handledConnections.current.delete(conn.peer);
-                        conn.close();
-                        return false;
-                    }
-                    return true;
-                });
+        setConnectedCons(prev => {
+            return prev.filter(conn => {
+                const isPeerActive = activePeers.includes(conn.peer);
+                const isConnectionOpen = conn.open;
+                
+                if (!isPeerActive || !isConnectionOpen) {
+                    console.log(`Removing disconnected peer: ${conn.peer}`);
+                    handledConnections.current.delete(conn.peer);
+                    conn.close();
+                    return false;
+                }
+                return true;
             });
-        }, [activePeers]);
+        });
+    }, [activePeers]);
 
     return (
         <ConnectionContext.Provider value={{ peer, connectedCons, peerName, addDataHandler, requesters: requesters.current, RRHandlers: RRHandlers.current, addRRHandler, sendRRMessage, connectedConsRef, requestersRef: requesters, requestersState }}>
