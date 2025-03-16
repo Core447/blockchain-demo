@@ -62,7 +62,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }, []);
 
     const getOtherPeerNames = useCallback(async (): Promise<string[]> => {
-        const response = await fetch(`http://localhost:9000/blockchain/peerjs/peers`);
+        const protocol = process.env.NEXT_PUBLIC_PEERJS_SERVER_SECURE === "true" ? "https" : "http";
+        const port = process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT ? `:${process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT}` : "";
+        const response = await fetch(`${protocol}://${process.env.NEXT_PUBLIC_PEERJS_SERVER_IP}${port}/blockchain/peerjs/peers`);
         const data = await response.json();
         return data.filter((p: string) => p !== peerName);
     }, [peerName]);
@@ -158,11 +160,11 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         
         console.log("Creating new peer", "peerName: ", peerName);
         const newPeer = new Peer(peerName, {
-            host: "localhost",
-            port: 9000,
+            host: process.env.NEXT_PUBLIC_PEERJS_SERVER_IP,
+            port: parseInt(process.env.NEXT_PUBLIC_PEERJS_SERVER_PORT!),
             path: "/blockchain",
             debug: 3,
-            secure: false
+            secure: process.env.NEXT_PUBLIC_PEERJS_SERVER_SECURE === "true",
         });
 
         newPeer.on("open", () => {
