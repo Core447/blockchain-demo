@@ -45,7 +45,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const blocksSet = useRef(new Set<MinedBlock>());
 
-    const { requestersState, peerName: PN } = useConnectionContext();
+    const { requesters: requestersState, peerName: PN } = useConnectionContext();
 
     const getLongestChain = useCallback(() => {
         const longestChain: MinedBlock[] = [];
