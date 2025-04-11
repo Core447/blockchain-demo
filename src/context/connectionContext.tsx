@@ -91,6 +91,24 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return connection.sendRRMessage<TRequest, TResponse>(peerName, payload);
     }, [connection]);
 
+    // Create a stable function reference for updateConnections
+    const updateConnectionsFn = useCallback(async () => {
+        if (!connectionRef.current) {
+            console.warn("Connection not initialized, cannot update connections");
+            return [];
+        }
+        await connectionRef.current.updateConnections();
+        return connectionRef.current.connectedCons.map(conn => conn.peer);
+    }, []);
+
+    // Use the stable function reference in the query
+    const { data: activePeers = [] } = useQuery({
+        queryKey: ['updateConnections'],
+        queryFn: updateConnectionsFn,
+        refetchInterval: 1000,
+        enabled: !!connectionRef.current, // Only run the query if we have a connection
+    });
+
     return (
         <ConnectionContext.Provider value={{
             peer,

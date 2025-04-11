@@ -30,6 +30,25 @@ export class Connection {
         this.peer = this.setupPeer(this.peerName);
     }
 
+    triggerOnPeerNameChanged() {
+        this.onPeerNameChanged(this.peerName);
+    }
+
+    triggerOnPeerChanged() {
+        this.onPeerChanged(this.peer!);
+    }
+
+    triggerOnConnectedConsChanged() {
+        this.onConnectedConsChanged(this.connectedCons);
+    }
+
+    triggerOnRRHandlersChanged() {
+        this.onRRHandlersChanged(this.rrHandlers);
+    }
+    triggerOnRequestersChanged() {
+        this.onRequestersChanged(this.requesters);
+    }
+
     get peer(): Peer | null {
         return this._peer;
     }
@@ -141,22 +160,50 @@ export class Connection {
     }
 
     async updateConnections() {
+        console.log("called updateConnections"); 
         if (this._isDestroyed) return;
         
         console.log("Updating connections...");
-        const activePeers = await this.getOtherPeerNames();
-        this.connectedCons = this.connectedCons.filter(conn => {
-            const isPeerActive = activePeers.includes(conn.peer);
-            const isConnectionOpen = conn.open;
+        try {
+            const activePeers = await this.getOtherPeerNames();
+            console.log("Active peers:", activePeers);
             
-            if (!isPeerActive || !isConnectionOpen) {
-                console.log(`Removing disconnected peer: ${conn.peer}`);
-                this.handledConnections.delete(conn.peer);
-                conn.close();
-                return false;
+            // Filter out connections that are no longer active
+            const updatedConnections = this.connectedCons.filter(conn => {
+                const isPeerActive = activePeers.includes(conn.peer);
+                const isConnectionOpen = conn.open;
+                
+                if (!isPeerActive || !isConnectionOpen) {
+                    console.log(`Removing disconnected peer: ${conn.peer}`);
+                    this.handledConnections.delete(conn.peer);
+                    conn.close();
+                    return false;
+                }
+                return true;
+            });
+            
+            // Update the connections list
+            if (updatedConnections.length !== this.connectedCons.length) {
+                console.log(`Connection count changed: ${this.connectedCons.length} -> ${updatedConnections.length}`);
+                this.connectedCons = updatedConnections;
             }
-            return true;
-        });
+            
+            // Try to connect to any active peers we're not connected to yet
+            for (const peerName of activePeers) {
+                if (!this.handledConnections.has(peerName) && !this.connectedCons.some(conn => conn.peer === peerName)) {
+                    console.log(`Attempting to connect to new peer: ${peerName}`);
+                    const conn = this.peer!.connect(peerName, {
+                        reliable: true,
+                    });
+                    this.setupConnectionHandlers(conn);
+                }
+            }
+        } catch (error) {
+            console.error("Error updating connections:", error);
+        }
+        this.triggerOnConnectedConsChanged();
+        this.triggerOnRRHandlersChanged();
+        this.triggerOnRequestersChanged();
     }
 
     generateRandomPeerName(): string {
