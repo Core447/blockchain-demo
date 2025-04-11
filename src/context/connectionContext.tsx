@@ -36,6 +36,9 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [rrHandlers, setRRHandlers] = useState<Map<string, (payload: Payload) => Payload>>(new Map());
     const [requesters, setRequesters] = useState<Map<string, PeerRequester>>(new Map());
     const [peer, setPeer] = useState<Peer | null>(null);
+
+    const pendingRRHandlers = useRef<Map<string, (payload: Payload) => Payload>>(new Map());
+    const pendingDataHandlers = useRef<((packet: Packet) => void)[]>([]);
     
     // Use a ref to store the connection instance to prevent recreation
     const connectionRef = useRef<Connection | null>(null);
@@ -75,13 +78,19 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     const addDataHandler = useCallback((handler: (packet: Packet) => void) => {
         if (connection) {
+            console.log("Adding data handler 2");
             connection.addDataHandler(handler);
+        } else {
+            pendingDataHandlers.current.push(handler);
         }
+        console.log("Adding data handler 3");
     }, [connection]);
 
     const addRRHandler = useCallback((payloadType: string, handler: (payload: Payload) => Payload) => {
         if (connection) {
             connection.addRRHandler(payloadType, handler);
+        } else {
+            pendingRRHandlers.current.set(payloadType, handler);
         }
     }, [connection]);
 
@@ -91,6 +100,26 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
         return connection.sendRRMessage<TRequest, TResponse>(peerName, payload);
     }, [connection]);
+
+
+
+    useEffect(() => {
+        if (connection) {
+            // Add pending data handlers
+            pendingDataHandlers.current.forEach(handler => {
+                console.log("Adding data handler 1");
+                connection.addDataHandler(handler);
+            });
+            pendingDataHandlers.current = [];
+            // Add pending RR handlers
+            pendingRRHandlers.current.forEach((handler, payloadType) => {
+                connection.addRRHandler(payloadType, handler);
+            });
+            pendingRRHandlers.current.clear();
+        }
+    }, [connection]);
+
+
 
     // Create a stable function reference for updateConnections
     const updateConnectionsFn = useCallback(async () => {

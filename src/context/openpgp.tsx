@@ -34,7 +34,7 @@ export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const publicKeysRef = useRef<Map<string, string>>(new Map());
     const [ publicKeys, setPublicKeys ] = useState<Map<string, string>>(new Map());
 
-    const { peerName, peer, connectedCons, sendRRMessage, connectedConsRef } = useConnectionContext();
+    const { peerName, peer, connectedCons, sendRRMessage } = useConnectionContext();
 
     useEffect(() => {
         async function load() {

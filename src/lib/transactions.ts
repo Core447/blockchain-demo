@@ -3,7 +3,7 @@ import { clear } from "console";
 import { createCleartextMessage, readCleartextMessage, readKey, readPrivateKey, sign, verify } from "openpgp";
 
 export interface UnsignedTransactionData {
-    index: number;
+    transactionId: number;
     amount: number;
     sender: string;
     receiver: string;
@@ -14,14 +14,14 @@ export interface SignedTransactionData extends UnsignedTransactionData {
 }
 
 export class Transaction {
-    index: number;
+    transactionId: number;
     amount: number;
     sender: string;
     receiver: string;
     signMessage: string | null;
 
-    constructor(index: number, amount: number, sender: string, receiver: string, signMessage: string | null = null) {
-        this.index = index;
+    constructor(transactionId: number, amount: number, sender: string, receiver: string, signMessage: string | null = null) {
+        this.transactionId = transactionId;
         this.amount = amount;
         this.sender = sender;
         this.receiver = receiver;
@@ -30,7 +30,7 @@ export class Transaction {
 
     getDataWithoutSignature(): UnsignedTransactionData {
         return {
-            index: this.index,
+            transactionId: this.transactionId,
             amount: this.amount,
             sender: this.sender,
             receiver: this.receiver
@@ -39,7 +39,7 @@ export class Transaction {
 
     getDataWithSignature(): SignedTransactionData {
         return {
-            index: this.index,
+            transactionId: this.transactionId,
             amount: this.amount,
             sender: this.sender,
             receiver: this.receiver,
@@ -48,7 +48,7 @@ export class Transaction {
     }
 
     setIndex(index: number) {
-        this.index = index;
+        this.transactionId = index;
     }
 
     async signTransaction(privateKey: string) {
@@ -120,14 +120,14 @@ export class Transaction {
     }
 
     checkIfIndexIsUnique(previousTransactionsOfUser: Transaction[]) {
-        const indices = [...previousTransactionsOfUser, this].map(transaction => transaction.index);
+        const indices = [...previousTransactionsOfUser, this].map(transaction => transaction.transactionId);
         return indices.length == new Set(indices).size;
     }
 
     isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
         console.log("checking with n previous transactions:", previousTransactionsOfUser.length);
         if (!this.checkIfIndexIsUnique(previousTransactionsOfUser)) {
-            console.log("false: index not unique, index: ", this.index);
+            console.log("false: index not unique, index: ", this.transactionId);
             return false;
         }
         if (!this.sender) {

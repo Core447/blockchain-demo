@@ -26,6 +26,7 @@ export class Blockchain {
     }
 
     triggerOnPendingTransactionsChanged() {
+        console.log("triggerOnPendingTransactionsChanged", this.pendingTransactions);
         this.onPendingTransactionsChanged(this.pendingTransactions);
     }
 
@@ -56,69 +57,113 @@ export class Blockchain {
     }
 
     getBlockByHash(hash: string | null): MinedBlock | null {
-        return Array.from(this.minedBlocks).find(block => block.getHash() === hash) || null;
+        if (!hash) {
+            console.log("No hash provided to getBlockByHash");
+            return null;
+        }
+        
+        console.log("Looking for block with hash:", hash);
+        const block = this._minedBlocks.find(block => block.getHash() === hash);
+        
+        if (block) {
+            console.log("Found block with hash:", hash);
+        } else {
+            console.log("Block with hash not found:", hash);
+        }
+        
+        return block || null;
     }
 
     generateChainEndingAtBlock(block: MinedBlock): MinedBlock[] {
+        console.log("Generating chain ending at block", block.getHash());
         const chain: MinedBlock[] = [];
         let currentBlock: MinedBlock | null = block;
-        while (currentBlock) {
-            chain.push(currentBlock);
-            //currentBlock = currentBlock.previousBlock;
-            // currentBlock = currentBlock.previousBlock;
+        
+        // Add the current block to the chain
+        chain.push(currentBlock);
+        
+        // Follow the previous block references until we reach the genesis block
+        while (currentBlock && currentBlock.previousBlockHash) {
             currentBlock = this.getBlockByHash(currentBlock.previousBlockHash);
+            if (currentBlock) {
+                chain.push(currentBlock);
+            } else {
+                console.warn("Could not find previous block with hash:", currentBlock?.previousBlockHash);
+                break;
+            }
         }
+        
+        // Reverse the chain so it starts with the genesis block
         chain.reverse();
+        console.log("Generated chain with", chain.length, "blocks");
         return chain;
     }
 
     getLongestChain(): MinedBlock[] {
+        console.log("Finding longest chain from", this._minedBlocks.length, "blocks");
+        
+        if (this._minedBlocks.length === 0) {
+            console.log("No blocks in blockchain");
+            return [];
+        }
+        
         const longestChain: MinedBlock[] = [];
-        for (const block of Array.from(this.minedBlocks)) {
+        for (const block of Array.from(this._minedBlocks)) {
             const chain = this.generateChainEndingAtBlock(block);
+            console.log("Chain ending at block", block.getHash(), "has length", chain.length);
             if (chain.length > longestChain.length) {
                 longestChain.splice(0, longestChain.length);
                 longestChain.push(...chain);
             }
         }
+        
+        console.log("Longest chain has", longestChain.length, "blocks");
         return longestChain;
-    };
+    }
 
     addBlockToSet(block: MinedBlock) {
         console.log("adding block to set");
+        
+        // Check if the block already exists in the blockchain
+        const existingBlock = this._minedBlocks.find(b => b.getHash() === block.getHash());
+        if (existingBlock) {
+            console.log("Block already exists in blockchain, skipping");
+            return;
+        }
+        
         this._minedBlocks.push(block);
 
         const mainBlockChain = this.getLongestChain();
+        console.log("Longest chain length:", mainBlockChain.length);
         this.minedBlocks = mainBlockChain;
-    };
+    }
 
     addBlock(block: MinedBlock, removeFromPending = false) {
         console.log("adding block", block);
         this.addBlockToSet(block);
 
-        let transactionToRemove: Transaction | null = null;
-
         if (removeFromPending) {
-            // setPendingTransactions(prev => prev.filter(t => !block.transactions.includes(t)));
-            console.log("pending transactions:", this.pendingTransactions);
+            console.log("Removing transactions from pending that are now in the block");
+            console.log("Pending transactions before:", this.pendingTransactions);
+            console.log("Block transactions:", block.transactions);
 
+            // Create a new array of pending transactions that don't match any in the block
+            const updatedPendingTransactions = this.pendingTransactions.filter(pendingTransaction => {
+                // Check if this pending transaction is in the block
+                const isInBlock = block.transactions.some(blockTransaction => 
+                    pendingTransaction.isEqual(blockTransaction)
+                );
+                
+                if (isInBlock) {
+                    console.log("Removing transaction from pending:", pendingTransaction);
+                }
+                
+                return !isInBlock;
+            });
 
-            this.pendingTransactions.forEach((pendingTransaction, index) => {
-                block.transactions.forEach(blockTransaction => {
-                    if (pendingTransaction.isEqual(blockTransaction)) {
-                        transactionToRemove = pendingTransaction;
-                    }
-                })
-            })
+            console.log("Pending transactions after:", updatedPendingTransactions);
+            this.pendingTransactions = updatedPendingTransactions;
         }
-
-        if (!transactionToRemove) {
-            console.log("no transaction to remove, continuing...");
-            // return;
-        }
-
-        console.log("transaction to remove:", transactionToRemove);
-        this.pendingTransactions = this.pendingTransactions.filter(t => !transactionToRemove?.isEqual(t));
     }
 
     incrementOwnTransactionId() {
@@ -224,22 +269,44 @@ export class Blockchain {
     }
 
     async sendCurrencyToEveryone(privateKey: string) {
-        if (!this.connection.peer) { return }
-        console.log(`sending to all ${this.connection.connectedCons.length} connections`)
-        const amount = Math.round(Math.random() * 1000)
+        if (!this.connection.peer) { 
+            console.warn("No peer connection available");
+            return;
+        }
+        
+        console.log(`Sending currency to all ${this.connection.connectedCons.length} connections`);
+        
+        // Only proceed if there are connected clients
+        if (this.connection.connectedCons.length === 0) {
+            console.warn("No connected clients to send currency to");
+            return;
+        }
+        
+        const amount = Math.round(Math.random() * 1000);
+        console.log(`Generated random amount: ${amount}`);
+        
+        // Create and sign transactions for each connected client
         for (const conn of this.connection.connectedCons) {
-            const transaction = new Transaction(this.ownTransactionId, amount, this.connection.peer.id, conn.peer, null)
-            this.ownTransactionId++
-            await transaction.signTransaction(privateKey)
-            console.log("sending:", transaction.getDataWithSignature())
-            this.addPendingTransaction(transaction)
+            console.log(`Creating transaction for ${conn.peer}`);
+            const transaction = new Transaction(this.ownTransactionId, amount, this.connection.peer.id, conn.peer, null);
+            this.ownTransactionId++;
+            
+            // Sign the transaction
+            await transaction.signTransaction(privateKey);
+            console.log(`Signed transaction for ${conn.peer}:`, transaction.getDataWithSignature());
+            
+            // Add to our pending transactions
+            this.addPendingTransaction(transaction);
+            
+            // Broadcast the transaction to all connected clients
+            console.log(`Broadcasting transaction to all clients`);
             sendData(
                 this.connection.peer,
                 this.connection.connectedCons,
                 transaction.getDataWithSignature(),
                 "transaction",
-                this.connection.connectedCons.map((c) => c.peer),
-            )
+                [], // Empty array means send to all connected clients
+            );
         }
     }
 
@@ -248,15 +315,21 @@ export class Blockchain {
         const minedBlock = this.mineBlockFromTransactions(this.pendingTransactions.slice(0, 1))
 
         console.log("mined block:", minedBlock)
-        this.addBlock(minedBlock, true)
-
-        sendData(
-            this.connection.peer,
-            this.connection.connectedCons,
-            minedBlock.getData(),
-            "block",
-            this.connection.connectedCons.map((c) => c.peer),
-        )
+        
+        // Add the block to our blockchain
+        this.addBlock(minedBlock, true);
+        
+        // Broadcast the mined block to all connected clients
+        if (this.connection.connectedCons.length > 0) {
+            console.log("Broadcasting mined block to all connected clients");
+            sendData(
+                this.connection.peer,
+                this.connection.connectedCons,
+                minedBlock.getData(),
+                "block",
+                this.connection.connectedCons.map((c) => c.peer),
+            );
+        }
     }
 
 }

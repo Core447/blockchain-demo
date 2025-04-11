@@ -160,13 +160,11 @@ export class Connection {
     }
 
     async updateConnections() {
-        console.log("called updateConnections"); 
         if (this._isDestroyed) return;
         
-        console.log("Updating connections...");
         try {
             const activePeers = await this.getOtherPeerNames();
-            console.log("Active peers:", activePeers);
+            // console.log("Active peers:", activePeers);
             
             // Filter out connections that are no longer active
             const updatedConnections = this.connectedCons.filter(conn => {
@@ -243,10 +241,13 @@ export class Connection {
     }
 
     addDataHandler(handler: (packet: Packet) => void) {
+        console.log("Adding data handler, current count:", this.dataHandlers.length);
         this.dataHandlers.push(handler);
+        console.log("Data handler added, new count:", this.dataHandlers.length);
     }
 
     addRRHandler(payloadType: string, handler: (payload: Payload) => Payload) {
+        console.log("Adding RR handler, current count:", this.rrHandlers.size);
         this.rrHandlers.set(payloadType, handler);
     }
 
@@ -310,8 +311,21 @@ export class Connection {
             
             console.log(`Received data from ${conn.peer}:`, data);
             const receivedPacket = data as Packet;
-            console.log("Calling handlers", this.dataHandlers.length);
-            this.dataHandlers.forEach((handler) => handler(receivedPacket));
+            
+            // Check if this is a request/response message
+            if ('type' in receivedPacket && (receivedPacket.type === 'request' || receivedPacket.type === 'response')) {
+                console.log("Received request/response message, not processing as packet");
+                return;
+            }
+            
+            console.log("Processing as packet, calling handlers:", this.dataHandlers.length);
+            this.dataHandlers.forEach((handler) => {
+                try {
+                    handler(receivedPacket);
+                } catch (error) {
+                    console.error("Error in data handler:", error);
+                }
+            });
         });
 
         conn.on("close", () => {

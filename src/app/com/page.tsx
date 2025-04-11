@@ -58,6 +58,8 @@ export default function Page() {
     }
     areDataHandlersSet.current = true
 
+    console.log("Adding data handler 1")
+
     addDataHandler((packet: Packet) => {
       if (packet.type == "publicKeyShare") {
         const publicSharePacket = packet.data as PublicKeyShare
@@ -66,18 +68,24 @@ export default function Page() {
         console.log("public keys", pgp.publicKeys)
       }
       if (packet.type == "transaction") {
+        console.log("Received transaction packet:", packet);
         const data = packet.data as SignedTransactionData
-        if (!data.index) {
+        if (Number.isNaN(data.transactionId)) {
+          console.warn("Received transaction without transactionId, ignoring", data);
           return
         }
-        const transaction = new Transaction(data.index, data.amount, data.sender, data.receiver, data.signMessage)
+        const transaction = new Transaction(data.transactionId, data.amount, data.sender, data.receiver, data.signMessage)
+        console.log("Created transaction object:", transaction);
         blockchain.addPendingTransaction(transaction)
+        console.log("Added transaction to pending transactions");
       }
 
       if (packet.type == "block") {
+        console.log("Received block packet:", packet);
         const blockData = packet.data as MinedBlockData
 
         const transactions = transactionsFromTransactionsData(blockData.transactions)
+        console.log("Created transactions from block data:", transactions);
 
         const previousBlock = blockchain.getBlockByHash(blockData.previousHash)
 
@@ -89,8 +97,9 @@ export default function Page() {
         }
 
         const block = new MinedBlock(previousBlock, blockData.previousHash, blockData.proofOfWork, transactions)
-        console.log("received block", block)
+        console.log("created block object:", block);
         blockchain.addBlock(block, true)
+        console.log("Added block to blockchain");
       }
     })
 

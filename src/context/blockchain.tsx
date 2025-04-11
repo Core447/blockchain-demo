@@ -56,66 +56,57 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             );
             blockchainRef.current.loadBlocksFromOtherClients();
         }
-
-        // Cleanup function to destroy the blockchain when the component unmounts
-        return () => {
-            if (blockchainRef.current) {
-                blockchainRef.current = null;
-            }
-        };
     }, [connection]);
 
-    const blockchain = blockchainRef.current;
-
     const clearBlocks = useCallback(() => {
-        if (blockchain) {
-            blockchain.clearBlocks();
+        if (blockchainRef.current) {
+            blockchainRef.current.clearBlocks();
             setMinedBlocks([]);
         }
-    }
-    , [blockchain]);
+    }, []);
 
     const addPendingTransaction = useCallback((transaction: Transaction) => {
-        if (blockchain) {
-            blockchain.addPendingTransaction(transaction);
+        if (blockchainRef.current) {
+            blockchainRef.current.addPendingTransaction(transaction);
+        } else {
+            console.error("Blockchain is not initialized");
         }
-    }, [blockchain]);
+    }, []);
 
     const addBlock = useCallback((block: MinedBlock, removeFromPending?: boolean) => {
-        if (blockchain) {
-            blockchain.addBlock(block, removeFromPending);
+        if (blockchainRef.current) {
+            blockchainRef.current.addBlock(block, removeFromPending);
         }
-    }, [blockchain]);
+    }, []);
 
     const mineBlockFromTransactions = useCallback((transactions: Transaction[]) => {
-        if (blockchain) {
-            return blockchain.mineBlockFromTransactions(transactions);
+        if (blockchainRef.current) {
+            return blockchainRef.current.mineBlockFromTransactions(transactions);
         }
         return null;
-    }, [blockchain]);
+    }, []);
 
     const getBlockByHash = useCallback((hash: string | null) => {
-        if (blockchain) {
-            return blockchain.getBlockByHash(hash);
+        if (blockchainRef.current) {
+            return blockchainRef.current.getBlockByHash(hash);
         }
         return null;
-    }, [blockchain]);
+    }, []);
 
     const calculateBalance = useCallback((publicKeys: Map<string, string>, userId: string) => {
-        if (!blockchain) return 0;
-        return blockchain.calculateBalance(publicKeys, userId);
-    }, [blockchain]);
+        if (!blockchainRef.current) return 0;
+        return blockchainRef.current.calculateBalance(publicKeys, userId);
+    }, []);
 
     const sendCurrencyToEveryone = useCallback((privateKey: string) => {
-        if (!blockchain) return;
-        blockchain.sendCurrencyToEveryone(privateKey);
-    }, [blockchain]);
+        if (!blockchainRef.current) return;
+        blockchainRef.current.sendCurrencyToEveryone(privateKey);
+    }, []);
 
     const mineLatestTransaction = useCallback(() => {
-        if (!blockchain) return;
-        blockchain.mineLatestTransaction();
-    }, [blockchain]);
-
+        if (!blockchainRef.current) return;
+        blockchainRef.current.mineLatestTransaction();
+    }, []);
 
     return (
         <BlockChainContext.Provider value={{
