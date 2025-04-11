@@ -35,24 +35,35 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [rrHandlers, setRRHandlers] = useState<Map<string, (payload: Payload) => Payload>>(new Map());
     const [requesters, setRequesters] = useState<Map<string, PeerRequester>>(new Map());
     const [peer, setPeer] = useState<Peer | null>(null);
+    
+    // Use a ref to store the connection instance to prevent recreation
+    const connectionRef = useRef<Connection | null>(null);
 
-    const connection = useMemo(() => {
-        const connection = new Connection(
-            (connectedCons: DataConnection[]) => setConnectedCons(connectedCons),
-            (peerName: string) => { },
-            (peer: Peer) => setPeer(peer),
-            (rrHandlers: Map<string, (payload: Payload) => Payload>) => setRRHandlers(rrHandlers),
-            (requesters: Map<string, PeerRequester>) => setRequesters(requesters),
-        );
-        connection.load();
-        return connection;
+    // Initialize connection only once
+    useEffect(() => {
+        // Only create a new connection if we don't have one yet
+        if (!connectionRef.current) {
+            connectionRef.current = new Connection(
+                (connectedCons: DataConnection[]) => setConnectedCons(connectedCons),
+                (peerName: string) => { },
+                (peer: Peer) => setPeer(peer),
+                (rrHandlers: Map<string, (payload: Payload) => Payload>) => setRRHandlers(rrHandlers),
+                (requesters: Map<string, PeerRequester>) => setRequesters(requesters),
+            );
+            connectionRef.current.load();
+        }
+
+        // Cleanup function to destroy the connection when the component unmounts
+        return () => {
+            if (connectionRef.current) {
+                connectionRef.current.destroy();
+                connectionRef.current = null;
+            }
+        };
     }, []);
 
-    // const { data: activePeers = [] } = useQuery({
-    //     queryKey: ['updateConnections'],
-    //     queryFn: connection.updateConnections,
-    //     refetchInterval: 1000,
-    // });
+    // Use the connection from the ref
+    const connection = connectionRef.current;
 
     const peerName = useMemo(() => {
         if (!peer) {
@@ -61,19 +72,24 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return peer.id;
     }, [peer]);
 
-
     const addDataHandler = useCallback((handler: (packet: Packet) => void) => {
-        connection.addDataHandler(handler);
+        if (connection) {
+            connection.addDataHandler(handler);
+        }
     }, [connection]);
 
     const addRRHandler = useCallback((payloadType: string, handler: (payload: Payload) => Payload) => {
-        connection.addRRHandler(payloadType, handler);
+        if (connection) {
+            connection.addRRHandler(payloadType, handler);
+        }
     }, [connection]);
 
     const sendRRMessage = useCallback(async <TRequest, TResponse>(peerName: string, payload: TRequest): Promise<TResponse> => {
+        if (!connection) {
+            throw new Error("Connection not initialized");
+        }
         return connection.sendRRMessage<TRequest, TResponse>(peerName, payload);
     }, [connection]);
-
 
     return (
         <ConnectionContext.Provider value={{

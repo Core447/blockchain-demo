@@ -11,6 +11,7 @@ export class Connection {
     dataHandlers: ((packet: Packet) => void)[] = [];
     _rrHandlers: Map<string, (payload: Payload) => Payload> = new Map();
     handledConnections: Set<string> = new Set();
+    _isDestroyed: boolean = false;
 
     constructor(
         public onConnectedConsChanged: (connectedCons: DataConnection[]) => void,
@@ -19,15 +20,12 @@ export class Connection {
         public onRRHandlersChanged: (rrHandlers: Map<string, (payload: Payload) => Payload>) => void,
         public onRequestersChanged: (requesters: Map<string, PeerRequester>) => void,
     ) {
-        try {
-            if (window) {
-                console.log("window exists");
-            }
-        }
-        catch (e) {
-            console.log("window does not exist");
+        // Check if we're in a browser environment
+        if (typeof window === 'undefined') {
+            console.log("Not in browser environment, skipping peer initialization");
             return;
         }
+        
         this.peerName = this.generateRandomPeerName();
         this.peer = this.setupPeer(this.peerName);
     }
@@ -78,12 +76,14 @@ export class Connection {
     }
 
     async load() {
-        if (!this.peer) {
-            console.error("Peer is not initialized");
+        if (!this.peer || this._isDestroyed) {
+            console.error("Peer is not initialized or connection is destroyed");
             return;
         }
 
         const loadConnections = async () => {
+            if (this._isDestroyed) return;
+            
             try {
                 const initialOtherPeerNames = await this.getOtherPeerNames();
                 initialOtherPeerNames.forEach((otherPeerName) => {
@@ -109,12 +109,40 @@ export class Connection {
 
         // Set up the connection listener only once
         this.peer.on("connection", (conn: DataConnection) => {
-            this.setupConnectionHandlers(conn);
+            if (!this._isDestroyed) {
+                this.setupConnectionHandlers(conn);
+            }
+        });
+    }
+
+    // Method to properly destroy the connection and clean up resources
+    destroy() {
+        this._isDestroyed = true;
+        
+        // Close all connections
+        this.connectedCons.forEach(conn => {
+            if (conn.open) {
+                conn.close();
+            }
+        });
+        
+        // Clear all collections
+        this.connectedCons = [];
+        this.handledConnections.clear();
+        this.requesters.clear();
+        this.dataHandlers = [];
+        this._rrHandlers.clear();
+        
+        // Destroy the peer
+        if (this.peer) {
+            this.peer.destroy();
+            this._peer = null;
         }
-        );
     }
 
     async updateConnections() {
+        if (this._isDestroyed) return;
+        
         console.log("Updating connections...");
         const activePeers = await this.getOtherPeerNames();
         this.connectedCons = this.connectedCons.filter(conn => {
@@ -148,7 +176,9 @@ export class Connection {
         });
 
         newPeer.on("open", () => {
-            console.log(`Peer opened with ID: ${newPeer.id}`);
+            if (!this._isDestroyed) {
+                console.log(`Peer opened with ID: ${newPeer.id}`);
+            }
         });
 
         newPeer.on("error", (err) => {
@@ -156,8 +186,10 @@ export class Connection {
         });
 
         newPeer.on("disconnected", () => {
-            console.log("Peer disconnected. Attempting to reconnect...");
-            newPeer.reconnect();
+            if (!this._isDestroyed) {
+                console.log("Peer disconnected. Attempting to reconnect...");
+                newPeer.reconnect();
+            }
         });
 
         return newPeer;
@@ -184,6 +216,10 @@ export class Connection {
     }
 
     async sendRRMessage<TRequest, TResponse>(peerName: string, payload: TRequest): Promise<TResponse> {
+        if (this._isDestroyed) {
+            throw new Error("Connection is destroyed");
+        }
+        
         const requester = this.requesters.get(peerName);
         if (requester) {
             const response = await requester.request<TRequest, TResponse>(payload);
@@ -193,53 +229,56 @@ export class Connection {
     }
 
     setupConnectionHandlers(conn: DataConnection) {
-            // Check if we've already set up handlers for this connection
-            if (this.handledConnections.has(conn.peer)) {
-                return;
-            }
-    
-            // Mark this connection as handled
-            this.handledConnections.add(conn.peer);
-    
-            conn.on("open", () => {
-                console.log(`Connection opened with ${conn.peer}`);
-                const requester = new PeerRequester(conn);
-                requester.onRequest<Payload, Payload>((payload) => {
-                    // find handler
-                    console.log("Received request", payload);
-                    const handler = this.rrHandlers.get(payload.type);
-                    if (handler) {
-                        return handler(payload);
-                    }
-                    console.error("No handler found for", payload.type);
-                    throw new Error(`No handler for ${payload.type}`);
-                })
-                console.log("bbc adding requester")
-                this.requesters.set(conn.peer, requester);
-                console.log("bbc n", this.requesters.size)
-                this.addConnection(conn);
-            });
-    
-            conn.on("data", (data) => {
-                console.log(`Received data from ${conn.peer}:`, data);
-                const receivedPacket = data as Packet;
-                console.log("Calling handlers", this.dataHandlers.length);
-                this.dataHandlers.forEach((handler) => handler(receivedPacket));
-            });
-    
-            conn.on("close", () => {
-                console.log(`Connection closed with ${conn.peer}`);
-                this.handledConnections.delete(conn.peer);
-                this.connectedCons = this.connectedCons.filter(c => c.peer !== conn.peer);
-                // Remove the requesters for this connection
-                this.requesters.delete(conn.peer);
-            });
-    
-            conn.on("error", (err) => {
-                console.error(`Connection error with ${conn.peer}:`, err);
-                this.handledConnections.delete(conn.peer);
-                this.connectedCons = this.connectedCons.filter(c => c.peer !== conn.peer);
-            });
-    
+        // Check if we've already set up handlers for this connection
+        if (this.handledConnections.has(conn.peer) || this._isDestroyed) {
+            return;
         }
+
+        // Mark this connection as handled
+        this.handledConnections.add(conn.peer);
+
+        conn.on("open", () => {
+            if (this._isDestroyed) return;
+            
+            console.log(`Connection opened with ${conn.peer}`);
+            const requester = new PeerRequester(conn);
+            requester.onRequest<Payload, Payload>((payload) => {
+                // find handler
+                console.log("Received request", payload);
+                const handler = this.rrHandlers.get(payload.type);
+                if (handler) {
+                    return handler(payload);
+                }
+                console.error("No handler found for", payload.type);
+                throw new Error(`No handler for ${payload.type}`);
+            })
+            console.log("bbc adding requester")
+            this.requesters.set(conn.peer, requester);
+            console.log("bbc n", this.requesters.size)
+            this.addConnection(conn);
+        });
+
+        conn.on("data", (data) => {
+            if (this._isDestroyed) return;
+            
+            console.log(`Received data from ${conn.peer}:`, data);
+            const receivedPacket = data as Packet;
+            console.log("Calling handlers", this.dataHandlers.length);
+            this.dataHandlers.forEach((handler) => handler(receivedPacket));
+        });
+
+        conn.on("close", () => {
+            console.log(`Connection closed with ${conn.peer}`);
+            this.handledConnections.delete(conn.peer);
+            this.connectedCons = this.connectedCons.filter(c => c.peer !== conn.peer);
+            // Remove the requesters for this connection
+            this.requesters.delete(conn.peer);
+        });
+
+        conn.on("error", (err) => {
+            console.error(`Connection error with ${conn.peer}:`, err);
+            this.handledConnections.delete(conn.peer);
+            this.connectedCons = this.connectedCons.filter(c => c.peer !== conn.peer);
+        });
+    }
 }
