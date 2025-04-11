@@ -109,7 +109,7 @@ export default function Page() {
 
     addRRHandler("getAllBlocks", (r) => {
       console.log("sending all blocks")
-      const blocks = Array.from(blockchain.blocksSet.current).map((block) => block.getData())
+      const blocks = blockchain.minedBlocks.map((block) => block.getData())
 
       return {
         type: "allBlocks",
@@ -129,44 +129,9 @@ export default function Page() {
     pgp.publicKeysRef,
     pgp.publicKeysRef.current.get,
     pgp.publicKeysRef.current.set,
-    blockchain.blocksSet.current,
+    blockchain.minedBlocks,
   ])
 
-  async function sendCurrencyToEveryone() {
-    if (!peer) { return }
-    console.log(`sending to all ${connectedCons.length} connections`)
-    const amount = Math.round(Math.random() * 1000)
-    for (const conn of connectedCons) {
-      const transaction = new Transaction(blockchain.ownTransactionIDRef.current, amount, peer.id, conn.peer, null)
-      blockchain.incrementOwnTransactionID()
-      await transaction.signTransaction(pgp.privateKey)
-      console.log("sending:", transaction.getDataWithSignature())
-      blockchain.addPendingTransaction(transaction)
-      sendData(
-        peer,
-        connectedCons,
-        transaction.getDataWithSignature(),
-        "transaction",
-        connectedCons.map((c) => c.peer),
-      )
-    }
-  }
-
-  function mineLatestTransaction() {
-    if (!peer) { return }
-    const minedBlock = blockchain.mineBlockFromTransactions(blockchain.pendingTransactions.slice(0, 1))
-
-    console.log("mined block:", minedBlock)
-    blockchain.addBlock(minedBlock, true)
-
-    sendData(
-      peer,
-      connectedCons,
-      minedBlock.getData(),
-      "block",
-      connectedCons.map((c) => c.peer),
-    )
-  }
 
   async function requestPublicKeys() {
     console.log("requesting public keys")
@@ -194,7 +159,7 @@ export default function Page() {
   function addFakeButCoherentBlockToOwnChain() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
-    const lastBlock = blockchain.blocksRef.current[blockchain.blocks.length - 1]
+    const lastBlock = blockchain.blocksRef.current[blockchain.minedBlocks.length - 1]
     const minedBlock = pendingBlock.mine(lastBlock, null)
     blockchain.addBlock(minedBlock, true)
   }
@@ -248,12 +213,12 @@ export default function Page() {
             <div className="space-y-3">
               <h3 className="text-md font-semibold text-muted-foreground">Normal Actions</h3>
               <div className="grid gap-2">
-                <Button onClick={sendCurrencyToEveryone} className="w-full justify-start" variant="outline">
+                <Button onClick={() => blockchain.sendCurrencyToEveryone(pgp.privateKey)} className="w-full justify-start" variant="outline">
                   <Coins className="mr-2 h-4 w-4" />
                   Send Currency To Everyone
                 </Button>
 
-                <Button onClick={mineLatestTransaction} className="w-full justify-start" variant="outline">
+                <Button onClick={blockchain.mineLatestTransaction} className="w-full justify-start" variant="outline">
                   <Pickaxe className="mr-2 h-4 w-4" />
                   Mine Latest Transaction
                 </Button>
@@ -331,8 +296,8 @@ export default function Page() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 h-[400px] overflow-y-auto p-4">
-              {blockchain.blocks.length > 0 ? (
-                blockchain.blocks.slice(-5).map((block, index) => <BlockCard key={index} block={block} />)
+              {blockchain.minedBlocks.length > 0 ? (
+                blockchain.minedBlocks.slice(-5).map((block, index) => <BlockCard key={index} block={block} />)
               ) : (
                 <div className="text-center text-muted-foreground py-4">No blocks mined yet</div>
               )}

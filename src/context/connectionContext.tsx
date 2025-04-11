@@ -10,6 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { adjectives, animals, colors, uniqueNamesGenerator } from "unique-names-generator";
 
 type ConnectionContextType = {
+    connection: Connection | null;
     peer: Peer | null;
     connectedCons: DataConnection[];
     peerName: string;
@@ -111,6 +112,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     return (
         <ConnectionContext.Provider value={{
+            connection,
             peer,
             connectedCons,
             peerName,
