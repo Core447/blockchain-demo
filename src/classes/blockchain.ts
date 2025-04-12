@@ -266,7 +266,7 @@ export class Blockchain {
 
     addPendingTransaction(transaction: Transaction) {
         console.log("adding pending transaction", transaction);
-        this.pendingTransactions.push(transaction);
+        this.pendingTransactions = [...this.pendingTransactions, transaction]; // can't use push because it mutates the array which means the state won't pick up the change
         this.triggerOnPendingTransactionsChanged();
     }
 
