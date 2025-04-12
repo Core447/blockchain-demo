@@ -14,6 +14,7 @@ export class Connection {
     _isDestroyed: boolean = false;
     toCallWhenLoaded: (() => void)[] = [];
     isLoaded: boolean = false;
+    toCallOnNewConnections: (() => void)[] = [];
 
     constructor(
         public onConnectedConsChanged: (connectedCons: DataConnection[]) => void,
@@ -40,6 +41,13 @@ export class Connection {
         if (this.isLoaded) {
             callback();
         }
+    }
+
+    addToCallOnNewConnections(callback: () => void) {
+        if (this._isDestroyed) {
+            return;
+        }
+        this.toCallOnNewConnections.push(callback);
     }
 
     triggerOnPeerNameChanged() {
@@ -114,7 +122,7 @@ export class Connection {
 
         const loadConnections = async () => {
             if (this._isDestroyed) return;
-            
+
             try {
                 const initialOtherPeerNames = await this.getOtherPeerNames();
                 initialOtherPeerNames.forEach((otherPeerName) => {
@@ -129,6 +137,7 @@ export class Connection {
             } catch (error) {
                 console.error("Error loading connections:", error);
             }
+
         }
         
         // Only load connections after peer is open
@@ -177,6 +186,8 @@ export class Connection {
 
     async updateConnections() {
         if (this._isDestroyed) return;
+
+        const oldConnectedConsIds = this.connectedCons.map(conn => conn.peer);
         
         try {
             const activePeers = await this.getOtherPeerNames();
@@ -215,6 +226,20 @@ export class Connection {
         } catch (error) {
             console.error("Error updating connections:", error);
         }
+
+        const newConnectedConsIds = this.connectedCons.map(conn => conn.peer);
+
+        const haveConnectionsChanged = newConnectedConsIds.length !== oldConnectedConsIds.length ||
+            !newConnectedConsIds.every((peerId, index) => peerId === oldConnectedConsIds[index]);
+
+        if (haveConnectionsChanged) {
+            console.log("Connections have changed.", this.connectedCons);
+        }
+
+        console.log("old", oldConnectedConsIds, "new", newConnectedConsIds);
+
+
+
         this.triggerOnConnectedConsChanged();
         this.triggerOnRRHandlersChanged();
         this.triggerOnRequestersChanged();
@@ -320,6 +345,7 @@ export class Connection {
             this.requesters.set(conn.peer, requester);
             console.log("bbc n", this.requesters.size)
             this.addConnection(conn);
+            this.toCallOnNewConnections.forEach(callback => callback());
         });
 
         conn.on("data", (data) => {

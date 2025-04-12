@@ -34,7 +34,9 @@ export class PGP {
         this.connection.addToCallWhenLoaded(() => {
             this.broadcastPublicKey();
         });
-
+        this.connection.addToCallOnNewConnections(() => {
+            this.broadcastPublicKey();
+        });
         this.connection.addDataHandler((packet: Packet) => {
             if (packet.type == "publicKeyShare") {
                 const publicSharePacket = packet.data as PublicKeyShare
