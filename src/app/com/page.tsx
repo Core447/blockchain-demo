@@ -61,12 +61,6 @@ export default function Page() {
     console.log("Adding data handler 1")
 
     addDataHandler((packet: Packet) => {
-      if (packet.type == "publicKeyShare") {
-        const publicSharePacket = packet.data as PublicKeyShare
-        pgp.publicKeysRef.current.set(packet.sender, publicSharePacket.publicKey)
-        pgp.setPublicKeys(new Map(pgp.publicKeysRef.current))
-        console.log("public keys", pgp.publicKeys)
-      }
       if (packet.type == "transaction") {
         console.log("Received transaction packet:", packet);
         const data = packet.data as SignedTransactionData
@@ -103,18 +97,7 @@ export default function Page() {
       }
     })
 
-    addRRHandler("requestOtherPublicKey", (r) => {
-      const payload = r.payload as RequestOtherPublicKey
-      console.log("searching in public keys:", pgp.publicKeysRef)
-      const otherPublicKey = pgp.publicKeysRef.current.get(payload.peer)
-
-      return {
-        type: "publicKeyShare",
-        payload: {
-          publicKey: otherPublicKey,
-        },
-      }
-    })
+    
 
     addRRHandler("getAllBlocks", (r) => {
       console.log("sending all blocks")
@@ -134,10 +117,7 @@ export default function Page() {
     blockchain.addPendingTransaction,
     blockchain.getBlockByHash,
     pgp.publicKeys,
-    pgp.setPublicKeys,
-    pgp.publicKeysRef,
-    pgp.publicKeysRef.current.get,
-    pgp.publicKeysRef.current.set,
+    pgp.publicKeys.get,
     blockchain.minedBlocks,
   ])
 
@@ -162,13 +142,13 @@ export default function Page() {
 
   const ownBalance = useMemo(() => {
     if (!peer) { return }
-    return blockchain.calculateBalance(pgp.publicKeysRef.current, peer.id)
-  }, [blockchain, peer?.id, pgp.publicKeysRef.current])
+    return blockchain.calculateBalance(pgp.publicKeys, peer.id)
+  }, [blockchain, peer?.id, pgp.publicKeys])
 
   function addFakeButCoherentBlockToOwnChain() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
-    const lastBlock = blockchain.blocksRef.current[blockchain.minedBlocks.length - 1]
+    const lastBlock = blockchain.minedBlocks[blockchain.minedBlocks.length - 1]
     const minedBlock = pendingBlock.mine(lastBlock, null)
     blockchain.addBlock(minedBlock, true)
   }

@@ -5,6 +5,7 @@ import { Connection } from "./connection";
 import { Payload } from "@/lib/requester";
 import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
 import { sendData } from "@/lib/communication";
+import { PGP } from "./pgp";
 
 export class Blockchain {
     private _minedBlocks: MinedBlock[];
@@ -12,6 +13,7 @@ export class Blockchain {
     public _ownTransactionId: number;
 
     constructor(
+        // private pgp: PGP,
         private connection: Connection,
         public onMinedBlocksChanged: (onMinedBlocksChanged: MinedBlock[]) => void,
         public onPendingTransactionsChanged: (pendingTransactions: Transaction[]) => void

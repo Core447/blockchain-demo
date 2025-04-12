@@ -12,6 +12,8 @@ export class Connection {
     _rrHandlers: Map<string, (payload: Payload) => Payload> = new Map();
     handledConnections: Set<string> = new Set();
     _isDestroyed: boolean = false;
+    toCallWhenLoaded: (() => void)[] = [];
+    isLoaded: boolean = false;
 
     constructor(
         public onConnectedConsChanged: (connectedCons: DataConnection[]) => void,
@@ -28,6 +30,16 @@ export class Connection {
         
         this.peerName = this.generateRandomPeerName();
         this.peer = this.setupPeer(this.peerName);
+    }
+
+    addToCallWhenLoaded(callback: () => void) {
+        if (this._isDestroyed) {
+            return;
+        }
+        this.toCallWhenLoaded.push(callback);
+        if (this.isLoaded) {
+            callback();
+        }
     }
 
     triggerOnPeerNameChanged() {
@@ -121,7 +133,7 @@ export class Connection {
         
         // Only load connections after peer is open
         if (this.peer.open) {
-            loadConnections();
+            await loadConnections();
         } else {
             this.peer.on("open", loadConnections);
         }
@@ -132,6 +144,10 @@ export class Connection {
                 this.setupConnectionHandlers(conn);
             }
         });
+
+        this.isLoaded = true;
+        this.toCallWhenLoaded.forEach(callback => callback());
+        // this.toCallWhenLoaded = [];
     }
 
     // Method to properly destroy the connection and clean up resources

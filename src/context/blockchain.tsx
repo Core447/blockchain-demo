@@ -7,6 +7,7 @@ import { useConnectionContext } from "./connectionContext";
 import { Payload } from "@/lib/requester";
 import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
 import { Blockchain } from "@/classes/blockchain";
+import { useOpenPGPContext } from "./openpgp";
 
 export type BlockChainContextType = {
     // blockchain: Blockchain
@@ -39,6 +40,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const blockchainRef = useRef<Blockchain | null>(null);
 
     const { connection } = useConnectionContext();
+    // const { pgp } = useOpenPGPContext();
 
     // Initialize blockchain only once
     useEffect(() => {
@@ -46,6 +48,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         // Only create a new blockchain if we don't have one yet
         if (!blockchainRef.current) {
             blockchainRef.current = new Blockchain(
+                // pgp,
                 connection,
                 (minedBlocks: MinedBlock[]) => {
                     setMinedBlocks(minedBlocks);
