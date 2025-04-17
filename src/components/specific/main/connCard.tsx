@@ -1,7 +1,7 @@
 "use client"
 
-import type { BlockChainContextType } from "@/context/blockchain"
-import type { OpenPGPContextType } from "@/context/openpgp"
+import { useBlockChainContext, type BlockChainContextType } from "@/context/blockchain"
+import { useOpenPGPContext, type OpenPGPContextType } from "@/context/openpgp"
 import type { DataConnection } from "peerjs"
 import { useEffect, useState } from "react"
 import { ChevronRight, Send } from "lucide-react"
@@ -16,27 +16,32 @@ import { useConnectionContext } from "@/context/connectionContext"
 
 interface ConnCardProps {
   conn: DataConnection
-  blockchain: BlockChainContextType
-  pgp: OpenPGPContextType
 }
 
-export default function ConnCard({ conn, blockchain, pgp }: ConnCardProps) {
+export default function ConnCard({ conn }: ConnCardProps) {
   const [balance, setBalance] = useState(0)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [amount, setAmount] = useState("")
   const [isLoading, setIsLoading] = useState(false)
 
-    const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
-  
+  const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
+  // const blockchain = useBlockChainContext()
+  const { sendMoney, calculateBalance, minedBlocks } = useBlockChainContext()
+  const { publicKeys, privateKey } = useOpenPGPContext()
+  const pgp = useOpenPGPContext()
+
 
   useEffect(() => {
-    const newBalance = blockchain.calculateBalance(pgp.publicKeys, conn.peer)
+    const newBalance = calculateBalance(publicKeys, conn.peer)
     setBalance(newBalance)
-  }, [blockchain, pgp.publicKeys, conn.peer])
+  }, [publicKeys, conn.peer, calculateBalance, minedBlocks])
 
   const handleSendMoney = async () => {
+    console.log("here")
     if (!peer) { return }
+    console.log("here2")
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+      console.error("Invalid amount")
       toast.error("Invalid amount", {
         description: "Please enter a valid positive number",
       })
@@ -45,28 +50,15 @@ export default function ConnCard({ conn, blockchain, pgp }: ConnCardProps) {
 
     setIsLoading(true)
     try {
-     // await blockchain.sendMoney(conn.peer, Number(amount))
-     const transaction = new Transaction(blockchain.ownTransactionIDRef.current, Number(amount), peer.id, conn.peer, null)
-     blockchain.incrementOwnTransactionID()
-     await transaction.signTransaction(pgp.privateKey)
-     blockchain.addPendingTransaction(transaction)
-     sendData(
-      peer,
-      connectedCons,
-      transaction.getDataWithSignature(),
-      "transaction",
-      connectedCons.map((c) => c.peer),
-    )
+      await sendMoney(conn.peer, Number(amount), privateKey)
       toast.success("Transaction successful", {
         description: `Successfully sent ${amount} to ${conn.peer}`,
       })
       setAmount("")
       setDialogOpen(false)
 
-      // Update balance after transaction
-      const newBalance = blockchain.calculateBalance(pgp.publicKeys, conn.peer)
-      setBalance(newBalance)
     } catch (error) {
+      console.error("Transaction failed", error)
       toast.error("Transaction failed", {
         description: error instanceof Error ? error.message : "Unknown error occurred",
       })

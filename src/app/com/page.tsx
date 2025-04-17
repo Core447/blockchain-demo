@@ -45,7 +45,7 @@ export default function Page() {
   // )
   const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([])
 
-  const blockchain = useBlockChainContext()
+  const { clearBlocks, pendingTransactions, minedBlocks, addPendingTransaction, addBlock, mineBlockFromTransactions, getBlockByHash, calculateBalance, sendCurrencyToEveryone, mineLatestTransaction } = useBlockChainContext()
   const pgp = useOpenPGPContext()
 
   const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
@@ -70,7 +70,7 @@ export default function Page() {
         }
         const transaction = new Transaction(data.transactionId, data.amount, data.sender, data.receiver, data.signMessage)
         console.log("Created transaction object:", transaction);
-        blockchain.addPendingTransaction(transaction)
+        addPendingTransaction(transaction)
         console.log("Added transaction to pending transactions");
       }
 
@@ -81,7 +81,7 @@ export default function Page() {
         const transactions = transactionsFromTransactionsData(blockData.transactions)
         console.log("Created transactions from block data:", transactions);
 
-        const previousBlock = blockchain.getBlockByHash(blockData.previousHash)
+        const previousBlock = getBlockByHash(blockData.previousHash)
 
         console.log("searching for previous block with hash:", blockData.previousHash)
 
@@ -92,7 +92,7 @@ export default function Page() {
 
         const block = new MinedBlock(previousBlock, blockData.previousHash, blockData.proofOfWork, transactions)
         console.log("created block object:", block);
-        blockchain.addBlock(block, true)
+        addBlock(block, true)
         console.log("Added block to blockchain");
       }
     })
@@ -101,7 +101,7 @@ export default function Page() {
 
     addRRHandler("getAllBlocks", (r) => {
       console.log("sending all blocks")
-      const blocks = blockchain.minedBlocks.map((block) => block.getData())
+      const blocks = minedBlocks.map((block) => block.getData())
 
       return {
         type: "allBlocks",
@@ -113,12 +113,12 @@ export default function Page() {
   }, [
     addDataHandler,
     addRRHandler,
-    blockchain.addBlock,
-    blockchain.addPendingTransaction,
-    blockchain.getBlockByHash,
+    addBlock,
+    addPendingTransaction,
+    getBlockByHash,
     pgp.publicKeys,
     pgp.publicKeys.get,
-    blockchain.minedBlocks,
+    minedBlocks,
   ])
 
 
@@ -140,21 +140,25 @@ export default function Page() {
     )
   }
 
+  useEffect(() => {
+    console.log("setPendingTransactions received", pendingTransactions.length, pendingTransactions)
+  }, [pendingTransactions])
+
   const ownBalance = useMemo(() => {
     if (!peer) { return }
-    return blockchain.calculateBalance(pgp.publicKeys, peer.id)
-  }, [blockchain, peer?.id, pgp.publicKeys])
+    return calculateBalance(pgp.publicKeys, peer.id)
+  }, [calculateBalance, pgp.publicKeys, peer, minedBlocks])
 
   function addFakeButCoherentBlockToOwnChain() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
-    const lastBlock = blockchain.minedBlocks[blockchain.minedBlocks.length - 1]
+    const lastBlock = minedBlocks[minedBlocks.length - 1]
     const minedBlock = pendingBlock.mine(lastBlock, null)
-    blockchain.addBlock(minedBlock, true)
+    addBlock(minedBlock, true)
   }
 
   function clearOwnChain() {
-    blockchain.clearBlocks()
+    clearBlocks()
   }
 
   const [mounted, setMounted] = useState(false)
@@ -202,12 +206,12 @@ export default function Page() {
             <div className="space-y-3">
               <h3 className="text-md font-semibold text-muted-foreground">Normal Actions</h3>
               <div className="grid gap-2">
-                <Button onClick={() => blockchain.sendCurrencyToEveryone(pgp.privateKey)} className="w-full justify-start" variant="outline">
+                <Button onClick={() => sendCurrencyToEveryone(pgp.privateKey)} className="w-full justify-start" variant="outline">
                   <Coins className="mr-2 h-4 w-4" />
                   Send Currency To Everyone
                 </Button>
 
-                <Button onClick={blockchain.mineLatestTransaction} className="w-full justify-start" variant="outline">
+                <Button onClick={mineLatestTransaction} className="w-full justify-start" variant="outline">
                   <Pickaxe className="mr-2 h-4 w-4" />
                   Mine Latest Transaction
                 </Button>
@@ -249,7 +253,7 @@ export default function Page() {
             <CardContent className="space-y-2 h-[300px] overflow-y-auto p-4">
               {connectedCons.length > 0 ? (
                 connectedCons.map((conn, index) => (
-                  <ConnCard conn={conn} key={index} blockchain={blockchain} pgp={pgp} />
+                  <ConnCard conn={conn} key={index} />
                 ))
               ) : (
                 <div className="text-center text-muted-foreground py-4">No active connections</div>
@@ -265,8 +269,8 @@ export default function Page() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 h-[300px] overflow-y-auto p-4">
-              {blockchain.pendingTransactions.length > 0 ? (
-                blockchain.pendingTransactions
+              {pendingTransactions.length > 0 ? (
+                pendingTransactions
                   .slice(-5)
                   .map((transaction, index) => (
                     <TransactionCard transaction={transaction} key={index} publicKeys={pgp.publicKeys} />
@@ -285,8 +289,8 @@ export default function Page() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 h-[400px] overflow-y-auto p-4">
-              {blockchain.minedBlocks.length > 0 ? (
-                blockchain.minedBlocks.slice(-5).map((block, index) => <BlockCard key={index} block={block} />)
+              {minedBlocks.length > 0 ? (
+                minedBlocks.slice(-5).map((block, index) => <BlockCard key={index} block={block} />)
               ) : (
                 <div className="text-center text-muted-foreground py-4">No blocks mined yet</div>
               )}

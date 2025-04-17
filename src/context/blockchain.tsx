@@ -22,6 +22,7 @@ export type BlockChainContextType = {
     clearBlocks: () => void
     sendCurrencyToEveryone: (privateKey: string) => void
     mineLatestTransaction: () => void
+    sendMoney: (receiver: string, amount: number, privateKey: string) => Promise<void>
 }
 
 const BlockChainContext = createContext<BlockChainContextType | null>(null);
@@ -111,6 +112,11 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         blockchainRef.current.mineLatestTransaction();
     }, []);
 
+    const sendMoney = useCallback(async(receiver: string, amount: number, privateKey: string) => {
+        if (!blockchainRef.current) return;
+        await blockchainRef.current.sendMoney(receiver, amount, privateKey);
+    }, []);
+
     return (
         <BlockChainContext.Provider value={{
             clearBlocks,
@@ -123,7 +129,8 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             getBlockByHash,
             calculateBalance,
             sendCurrencyToEveryone,
-            mineLatestTransaction
+            mineLatestTransaction,
+            sendMoney
         }}>
             {children}
         </BlockChainContext.Provider>
