@@ -7,14 +7,13 @@ import { BroadcastOtherPublicKeys, PublicKeyShare } from "@/app/com/page";
 import { sendData } from "@/lib/communication";
 import { RequestOtherPublicKey, ResponseOtherPublicKey } from "@/lib/messages";
 import { Payload } from "@/lib/requester";
+import { PGP } from "@/classes/pgp";
 
 export type OpenPGPContextType = {
     privateKey: string;
     publicKey: string;
     publicKeys: Map<string, string>;
-    publicKeysRef: React.MutableRefObject<Map<string, string>>
-    setPublicKeys: React.Dispatch<React.SetStateAction<Map<string, string>>>
-    retrievePublicKeyFromNetwork: (peerName: string) => Promise<ResponseOtherPublicKey[]>
+    retrievePublicKeyFromNetwork: (peerName: string) => Promise<ResponseOtherPublicKey[] | undefined>;
 };
 
 export const OpenPGPContext = createContext<OpenPGPContextType | null>(null);
@@ -28,81 +27,53 @@ export function useOpenPGPContext() {
 }
 
 export const OpenPGPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [publicKeys, setPublicKeys] = useState<Map<string, string>>(new Map());
     const [privateKey, setPrivateKey] = useState<string>("");
     const [publicKey, setPublicKey] = useState<string>("");
-    // const publicKeys = useRef<Map<string, string>>(new Map());
-    const publicKeysRef = useRef<Map<string, string>>(new Map());
-    const [ publicKeys, setPublicKeys ] = useState<Map<string, string>>(new Map());
 
-    const { peerName, peer, connectedCons, sendRRMessage, connectedConsRef } = useConnectionContext();
+    const pgpRef = useRef<PGP | null>(null);
 
+    const { connection } = useConnectionContext();
+
+    // Initialize only once
     useEffect(() => {
-        async function load() {
-            const { publicKey, privateKey } = await generateKey({
-                userIDs: [{ name: peerName }],
-            })
-            setPublicKey(publicKey);
-            setPrivateKey(privateKey);
-
-            publicKeysRef.current.set(peerName, publicKey);
-            setPublicKeys(new Map(publicKeysRef.current));
+        if (!connection) return;
+        if (!pgpRef.current) {
+            pgpRef.current = new PGP(
+                connection,
+                (publicKeys: Map<string, string>) => {
+                    setPublicKeys(publicKeys);
+                }
+                , (publicKey: string) => {
+                    setPublicKey(publicKey);
+                }
+                , (privateKey: string) => {
+                    setPrivateKey(privateKey);
+                }
+            );
+            pgpRef.current.load();
         }
-        load();
-    }, [peerName]);
 
-    const broadcastPublicKey = useCallback(() => {
-        if (!peer) { return }
-        console.info("broadcasting public key");
-        const data: PublicKeyShare = {
-            publicKey: publicKey
-        }
-        sendData(peer, connectedCons, data, "publicKeyShare", connectedCons.map(c => c.peer));
-    }, [publicKey, peer, connectedCons]);
-
-    const broadcastOtherPublicKeys = useCallback(() => {
-        if (!peer) { return }
-        console.info("broadcasting other public keys");
-        const otherPublicKeys = new Map<string, string>(publicKeysRef.current);
-        otherPublicKeys.delete(peerName);
-        const data: BroadcastOtherPublicKeys = {
-            otherPublicKeys: otherPublicKeys
-        }
-        sendData(peer, connectedCons, data, "broadcastOtherPublicKeys", connectedCons.map(c => c.peer));
-    }, [peer, connectedCons, peerName]);
-
-    // broadcast new public key
-    useEffect(() => {
-        broadcastPublicKey();
-    }, [broadcastPublicKey]);
+        return () => {
+            if (pgpRef.current) {
+                pgpRef.current = null;
+            }
+        };
+    }, [connection]);
 
     const retrievePublicKeyFromNetwork = useCallback(async (peerName: string) => {
-        console.log("asking", connectedConsRef.current.length, "connections for public key");
-        const answers = await Promise.all(connectedConsRef.current.map(async (conn) => {
-            console.log("sending request to", conn.peer);
-            const r = await sendRRMessage<Payload<RequestOtherPublicKey>, Payload<ResponseOtherPublicKey>>(conn.peer, {
-                type: "requestOtherPublicKey",
-                payload: {
-                    peer: peerName
-                }
-            }
-        )
-        return r;
-        }));
-        console.log("answers:", answers);
-
-        if (answers.length === 0) {
-            return [];
-        }
-
-        // return answers[0].payload.publicKey;
-
-
-        return answers.map(answer => answer.payload);
+        if (!pgpRef.current) return;
+        return await pgpRef.current.retrievePublicKeyFromNetwork(peerName);
     }, []);
-
+        
 
     return (
-        <OpenPGPContext.Provider value={{ privateKey, publicKey, publicKeys: publicKeys, publicKeysRef, setPublicKeys, retrievePublicKeyFromNetwork }}>
+        <OpenPGPContext.Provider value={{
+            privateKey,
+            publicKey,
+            publicKeys: publicKeys,
+            retrievePublicKeyFromNetwork
+        }}>
             {children}
         </OpenPGPContext.Provider>
     );
