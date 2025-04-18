@@ -6,6 +6,7 @@ import { Payload } from "@/lib/requester";
 import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
 import { sendData } from "@/lib/communication";
 import { PGP } from "./pgp";
+import { generateKey } from "openpgp";
 
 export class Blockchain {
     private _minedBlocks: MinedBlock[];
@@ -213,6 +214,16 @@ export class Blockchain {
         return validTransactions;
     }
 
+    getAllTransactionsFromUser(userId: string) {
+        const allTransactions = this.getAllTransactionsInChain();
+        return allTransactions.filter(transaction => transaction.sender === userId || transaction.receiver === userId);
+    }
+
+    getMaxTransactionIdOfUser(userId: string) {
+        const transactions = this.getAllTransactionsFromUser(userId);
+        return transactions.reduce((max, transaction) => Math.max(max, transaction.transactionId), 0);
+    }
+
     calculateBalance(publicKeys: Map<string, string>, userId: string) {
         // get all transactions
         if (this.minedBlocks.length === 0) {
@@ -277,6 +288,32 @@ export class Blockchain {
         }
         const transaction = new Transaction(this.ownTransactionId, amount, this.connection.peer.id, receiver, null);
         this.ownTransactionId++;
+        await transaction.signTransaction(privateKey);
+        this.addPendingTransaction(transaction);
+        sendData(
+            this.connection.peer,
+            this.connection.connectedCons,
+            transaction.getDataWithSignature(),
+            "transaction",
+            this.connection.connectedCons.map((c) => c.peer),
+        );
+    }
+
+    async sendMoneyInTheNameOfSomeone(sender: string, receiver: string, amount: number) {
+        if (!this.connection.peer) {
+            console.warn("No peer connection available");
+            return;
+        }
+
+        // we don't have the real private key of the sender, so we create a fake one
+        const { privateKey } = await generateKey({
+            userIDs: [{ name: this.connection.peerName }],
+        })
+
+        // get transactionId from sender
+        const senderTransactionId = this.getMaxTransactionIdOfUser(sender);
+        const transaction = new Transaction(senderTransactionId + 1, amount, this.connection.peer.id, receiver, null);
+
         await transaction.signTransaction(privateKey);
         this.addPendingTransaction(transaction);
         sendData(

@@ -23,10 +23,11 @@ export default function ConnCard({ conn }: ConnCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [amount, setAmount] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const [stealAmount, setStealAmount] = useState("10")
 
-  const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
+  const { peer } = useConnectionContext()
   // const blockchain = useBlockChainContext()
-  const { sendMoney, calculateBalance, minedBlocks } = useBlockChainContext()
+  const { sendMoney, calculateBalance, minedBlocks, sendMoneyInTheNameOfSomeone } = useBlockChainContext()
   const { publicKeys, privateKey } = useOpenPGPContext()
   const pgp = useOpenPGPContext()
 
@@ -110,6 +111,45 @@ export default function ConnCard({ conn }: ConnCardProps) {
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Current Balance</h3>
               <p className={`font-mono text-sm ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>{balance}</p>
+            </div>
+
+            <div className="space-y-2 pt-4 border-t">
+              <h3 className="text-sm font-medium">Steal money</h3>
+              <p className="text-xs text-muted-foreground">Create a fake transaction that appears to come from this user</p>
+              <div className="grid gap-2">
+                <Label htmlFor="stealAmount">Amount to steal</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="stealAmount"
+                    type="number"
+                    placeholder="Enter amount"
+                    value={stealAmount}
+                    onChange={(e) => setStealAmount(e.target.value)}
+                    min="0"
+                    step="1"
+                  />
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => {
+                      if (!stealAmount || isNaN(Number(stealAmount)) || Number(stealAmount) <= 0) {
+                        toast.error("Invalid amount", {
+                          description: "Please enter a valid positive number",
+                        })
+                        return
+                      }
+                      
+                      sendMoneyInTheNameOfSomeone(conn.peer, peer!.id, Number(stealAmount))
+                      toast.success("Spoofed transaction created", {
+                        description: `Created a fake transaction of ${stealAmount} from ${conn.peer}`,
+                      })
+                    }} 
+                    disabled={!conn.open}
+                    className="gap-2 whitespace-nowrap"
+                  >
+                    Steal
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2 pt-4 border-t">
