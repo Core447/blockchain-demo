@@ -22,6 +22,21 @@ export class Blockchain {
         this._minedBlocks = [];
         this._pendingTransactions = [];
         this._ownTransactionId = 0;
+
+
+        this.connection.addRRHandler("getAllBlocks", (r) => {
+            console.log("sending all blocks")
+            const blocks = this.minedBlocks.map((block) => block.getData())
+
+            console.log("sending all blocks", blocks)
+
+            return {
+                type: "allBlocks",
+                payload: {
+                    blocks,
+                },
+            }
+        })
     }
 
     triggerOnMinedBlocksChanged() {

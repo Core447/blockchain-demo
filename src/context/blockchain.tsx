@@ -59,7 +59,15 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     setPendingTransactions(pendingTransactions);
                 }
             );
+            // Initial load to try getting blocks from any existing connections
             blockchainRef.current.loadBlocksFromOtherClients();
+            
+            // Also load blocks when new connections are established
+            connection.addToCallOnNewConnections(() => {
+                if (blockchainRef.current) {
+                    blockchainRef.current.loadBlocksFromOtherClients();
+                }
+            });
         }
     }, [connection]);
 

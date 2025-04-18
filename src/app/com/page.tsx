@@ -96,20 +96,6 @@ export default function Page() {
         console.log("Added block to blockchain");
       }
     })
-
-    
-
-    addRRHandler("getAllBlocks", (r) => {
-      console.log("sending all blocks")
-      const blocks = minedBlocks.map((block) => block.getData())
-
-      return {
-        type: "allBlocks",
-        payload: {
-          blocks,
-        },
-      }
-    })
   }, [
     addDataHandler,
     addRRHandler,
