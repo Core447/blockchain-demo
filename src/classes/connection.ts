@@ -125,19 +125,22 @@ export class Connection {
 
             try {
                 const initialOtherPeerNames = await this.getOtherPeerNames();
+                console.log(`Initial other peer names: ${JSON.stringify(initialOtherPeerNames)}`);
+                
                 initialOtherPeerNames.forEach((otherPeerName) => {
-                    // Only create a connection if we haven't handled it yet
-                    if (!this.handledConnections.has(otherPeerName)) {
-                        const conn = this.peer!.connect(otherPeerName, {
-                            reliable: true,
-                        });
-                        this.setupConnectionHandlers(conn);
-                    }
+                    console.log(`Initial connection attempt to: ${otherPeerName}`);
+                    this.handledConnections.delete(otherPeerName); // Remove from handled to force reconnection
+                    const conn = this.peer!.connect(otherPeerName, {
+                        reliable: true,
+                    });
+                    this.setupConnectionHandlers(conn);
                 });
+                
+                // Schedule periodic connection attempts
+                setTimeout(() => this.ensureConnections(), 2000);
             } catch (error) {
                 console.error("Error loading connections:", error);
             }
-
         }
         
         // Only load connections after peer is open
@@ -150,13 +153,50 @@ export class Connection {
         // Set up the connection listener only once
         this.peer.on("connection", (conn: DataConnection) => {
             if (!this._isDestroyed) {
+                console.log(`Received incoming connection from: ${conn.peer}`);
                 this.setupConnectionHandlers(conn);
             }
         });
 
         this.isLoaded = true;
         this.toCallWhenLoaded.forEach(callback => callback());
-        // this.toCallWhenLoaded = [];
+    }
+
+    async ensureConnections() {
+        if (this._isDestroyed) return;
+        
+        try {
+            const activePeers = await this.getOtherPeerNames();
+            console.log(`Active peers for reconnection: ${JSON.stringify(activePeers)}`);
+            
+            // For each active peer, try to establish a connection if not already connected
+            for (const peerName of activePeers) {
+                const isConnected = this.connectedCons.some(conn => conn.peer === peerName && conn.open);
+                
+                if (!isConnected) {
+                    console.log(`Reconnection attempt to peer: ${peerName}`);
+                    this.handledConnections.delete(peerName);
+                    
+                    const conn = this.peer!.connect(peerName, {
+                        reliable: true,
+                    });
+                    
+                    this.setupConnectionHandlers(conn);
+                }
+            }
+            
+            // Schedule next connection attempt
+            if (!this._isDestroyed) {
+                setTimeout(() => this.ensureConnections(), 5000);
+            }
+        } catch (error) {
+            console.error("Error ensuring connections:", error);
+            
+            // Even on error, try again later
+            if (!this._isDestroyed) {
+                setTimeout(() => this.ensureConnections(), 5000);
+            }
+        }
     }
 
     // Method to properly destroy the connection and clean up resources
@@ -259,6 +299,16 @@ export class Connection {
             path: "/blockchain",
             debug: 3,
             secure: process.env.NEXT_PUBLIC_PEERJS_SERVER_SECURE === "true",
+            config: {
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" },
+                    { urls: "stun:stun2.l.google.com:19302" },
+                    { urls: "stun:stun3.l.google.com:19302" },
+                    { urls: "stun:stun4.l.google.com:19302" },
+                ],
+                sdpSemantics: 'unified-plan'
+            }
         });
 
         newPeer.on("open", () => {
@@ -269,6 +319,11 @@ export class Connection {
 
         newPeer.on("error", (err) => {
             console.error("Peer error:", err);
+            
+            // On certain errors, try to reconnect
+            if (err.type === 'peer-unavailable' && !this._isDestroyed) {
+                console.log("Peer unavailable, will retry on next connection cycle");
+            }
         });
 
         newPeer.on("disconnected", () => {
@@ -318,18 +373,38 @@ export class Connection {
     }
 
     setupConnectionHandlers(conn: DataConnection) {
-        // Check if we've already set up handlers for this connection
-        if (this.handledConnections.has(conn.peer) || this._isDestroyed) {
+        // Allow reconnection attempts even if we've handled this peer before
+        if (this._isDestroyed) {
             return;
         }
 
-        // Mark this connection as handled
+        // Mark this connection as being handled
         this.handledConnections.add(conn.peer);
+        
+        console.log(`Setting up connection handlers for ${conn.peer}`);
+
+        // Set a timeout to detect if the connection isn't opening properly
+        const connectionTimeout = setTimeout(() => {
+            if (!conn.open && this.handledConnections.has(conn.peer)) {
+                console.log(`Connection to ${conn.peer} timed out, will retry`);
+                this.handledConnections.delete(conn.peer);
+                conn.close();
+            }
+        }, 10000);
 
         conn.on("open", () => {
             if (this._isDestroyed) return;
             
+            clearTimeout(connectionTimeout); // Clear the timeout once connected
             console.log(`Connection opened with ${conn.peer}`);
+            
+            // Check if we already have a connection to this peer
+            const existingConn = this.connectedCons.find(c => c.peer === conn.peer);
+            if (existingConn) {
+                console.log(`Already have a connection to ${conn.peer}, using this one instead`);
+                this.connectedCons = this.connectedCons.filter(c => c.peer !== conn.peer);
+            }
+            
             const requester = new PeerRequester(conn);
             requester.onRequest<Payload, Payload>((payload) => {
                 // find handler
@@ -340,12 +415,17 @@ export class Connection {
                 }
                 console.error("No handler found for", payload.type);
                 throw new Error(`No handler for ${payload.type}`);
-            })
-            console.log("bbc adding requester")
+            });
+            
+            console.log("Adding requester for peer", conn.peer);
             this.requesters.set(conn.peer, requester);
-            console.log("bbc n", this.requesters.size)
+            console.log("Current requesters count:", this.requesters.size);
+            
             this.addConnection(conn);
             this.toCallOnNewConnections.forEach(callback => callback());
+            
+            // Update the UI to show the new connection
+            this.triggerOnConnectedConsChanged();
         });
 
         conn.on("data", (data) => {
