@@ -206,7 +206,7 @@ export class Blockchain {
         return transactions;
     }
 
-    getValidTransactions(publicKeys: Map<string, string>) {
+    async getValidTransactions(publicKeys: Map<string, string>) {
         const allTransactions = this.getAllTransactionsInChain();
         let userIds = [...allTransactions.map(transaction => transaction.sender), ...allTransactions.map(transaction => transaction.receiver)];
         userIds = Array.from(new Set(userIds));
@@ -219,7 +219,7 @@ export class Blockchain {
             const previousTransactionsOfUser = [];
             const senderTransactions = allTransactions.filter(transaction => transaction.sender === senderId);
             for (const transaction of senderTransactions) {
-                if (transaction.isValid(publicKeys, previousTransactionsOfUser)) {
+                if (await transaction.isValid(publicKeys, previousTransactionsOfUser)) {
                     validTransactions.push(transaction);
                     previousTransactionsOfUser.push(transaction);
                 }
@@ -239,14 +239,14 @@ export class Blockchain {
         return transactions.reduce((max, transaction) => Math.max(max, transaction.transactionId), 0);
     }
 
-    calculateBalance(publicKeys: Map<string, string>, userId: string) {
+    async calculateBalance(publicKeys: Map<string, string>, userId: string) {
         // get all transactions
         if (this.minedBlocks.length === 0) {
             return 0;
         }
         const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
         // const transactions = latestBlock.getAllTransactionsInChain();
-        const transactions = this.getValidTransactions(publicKeys);
+        const transactions = await this.getValidTransactions(publicKeys);
         const outgoingTransactions = transactions.filter(transaction => transaction.sender === userId);
         const incomingTransactions = transactions.filter(transaction => transaction.receiver === userId);
         const outgoingAmount = outgoingTransactions.reduce((total, transaction) => total + transaction.amount, 0);

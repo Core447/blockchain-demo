@@ -18,7 +18,7 @@ export type BlockChainContextType = {
     mineBlockFromTransactions: (transactions: Transaction[]) => MinedBlock | null
     setPendingTransactions: React.Dispatch<React.SetStateAction<Transaction[]>>
     getBlockByHash: (hash: string | null) => MinedBlock | null
-    calculateBalance: (publicKeys: Map<string, string>, userId: string) => number
+    calculateBalance: (publicKeys: Map<string, string>, userId: string) => Promise<number>
     clearBlocks: () => void
     sendCurrencyToEveryone: (privateKey: string) => void
     mineLatestTransaction: () => void
@@ -106,9 +106,9 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         return null;
     }, []);
 
-    const calculateBalance = useCallback((publicKeys: Map<string, string>, userId: string) => {
+    const calculateBalance = useCallback(async(publicKeys: Map<string, string>, userId: string) => {
         if (!blockchainRef.current) return 0;
-        return blockchainRef.current.calculateBalance(publicKeys, userId);
+        return await blockchainRef.current.calculateBalance(publicKeys, userId);
     }, []);
 
     const sendCurrencyToEveryone = useCallback((privateKey: string) => {

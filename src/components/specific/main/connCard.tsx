@@ -33,8 +33,9 @@ export default function ConnCard({ conn }: ConnCardProps) {
 
 
   useEffect(() => {
-    const newBalance = calculateBalance(publicKeys, conn.peer)
-    setBalance(newBalance)
+    calculateBalance(publicKeys, conn.peer)
+      .then(newBalance => setBalance(newBalance))
+      .catch(error => console.error("Error calculating balance:", error))
   }, [publicKeys, conn.peer, calculateBalance, minedBlocks])
 
   const handleSendMoney = async () => {

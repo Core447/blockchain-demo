@@ -53,7 +53,7 @@ export class MinedBlock extends Block {
             const previousTransactionsOfUser = getTransactionsBeforeThisBlock.filter(transaction => transaction.sender === sender);
             const senderTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === sender);
             for (const transaction of senderTransactionsOfThisBlock) {
-                if (!transaction.isValid(publicKeys, previousTransactionsOfUser)) {
+                if (!(await transaction.isValid(publicKeys, previousTransactionsOfUser))) {
                     return false;
                 }
                 previousTransactionsOfUser.push(transaction);

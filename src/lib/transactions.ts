@@ -124,7 +124,7 @@ export class Transaction {
         return indices.length == new Set(indices).size;
     }
 
-    isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
+    async isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
         console.log("checking with n previous transactions:", previousTransactionsOfUser.length);
         if (!this.checkIfIndexIsUnique(previousTransactionsOfUser)) {
             console.log("false: index not unique, index: ", this.transactionId);
@@ -139,7 +139,7 @@ export class Transaction {
             console.log("false: no public key");
             return false;
         }
-        if (!this.verifyTransactionSignature(publicKey)) {
+        if (!await this.verifyTransactionSignature(publicKey)) {
             console.log("false: signature not valid");
             return false;
         }

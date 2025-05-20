@@ -130,9 +130,18 @@ export default function Page() {
     console.log("setPendingTransactions received", pendingTransactions.length, pendingTransactions)
   }, [pendingTransactions])
 
+  const [balance, setBalance] = useState(0)
+
   const ownBalance = useMemo(() => {
     if (!peer) { return }
-    return calculateBalance(pgp.publicKeys, peer.id)
+    
+    const balancePromise = calculateBalance(pgp.publicKeys, peer.id)
+    
+    balancePromise
+      .then(balance => setBalance(balance))
+      .catch(error => console.error("Error calculating balance:", error))
+    
+    return null
   }, [calculateBalance, pgp.publicKeys, peer, minedBlocks])
 
   function addFakeButCoherentBlockToOwnChain() {
@@ -175,7 +184,7 @@ export default function Page() {
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium text-muted-foreground">Balance:</span>
               <span className="font-mono bg-primary/10 text-primary px-2 py-1 rounded text-sm font-semibold">
-                {ownBalance}
+                {balance}
               </span>
             </div>
           </div>
