@@ -3,7 +3,7 @@ import { Transaction, transactionsFromTransactionsData } from "@/lib/transaction
 import Peer from "peerjs";
 import { Connection } from "./connection";
 import { Payload } from "@/lib/requester";
-import { RequestAllBlocks, ResponseAllBlocks } from "@/lib/messages";
+import { RequestAllBlocks, RequestAllPendingTransactions, ResponseAllBlocks, ResponseAllPendingTransactions } from "@/lib/messages";
 import { sendData } from "@/lib/communication";
 import { PGP } from "./pgp";
 import { generateKey } from "openpgp";
@@ -34,6 +34,18 @@ export class Blockchain {
                 type: "allBlocks",
                 payload: {
                     blocks,
+                },
+            }
+        })
+
+        this.connection.addRRHandler("getAllPendingTransactions", (r) => {
+            console.log("sending all pending transactions")
+            const transactions = this.pendingTransactions.map((transaction) => transaction.getDataWithSignature())
+            console.log("sending all pending transactions", transactions)
+            return {
+                type: "allPendingTransactions",
+                payload: {
+                    transactions,
                 },
             }
         })
@@ -261,7 +273,7 @@ export class Blockchain {
     }
 
     loadBlocksFromOtherClients() {
-        console.log("bbc getting blocks from other clients", this.connection.requesters.size);
+        console.log("zzd bbc getting blocks from other clients", this.connection.requesters.size);
         this.connection.requesters.forEach((requester, peerName) => {
             if (peerName == this.connection.peerName) {
                 alert("skipping own peer");
@@ -290,8 +302,36 @@ export class Blockchain {
         })
     }
 
-    addPendingTransaction(transaction: Transaction) {
+    loadPendingTransactionsFromOtherClients() {
+        console.log("zzd getting pending transactions from other clients", this.connection.requesters.size);
+        this.connection.requesters.forEach((requester, peerName) => {
+            if (peerName == this.connection.peerName) {
+                alert("skipping own peer");
+            }
+            requester.request<Payload<RequestAllPendingTransactions>, Payload<ResponseAllPendingTransactions>>({
+                type: "getAllPendingTransactions",
+                payload: {
+                }
+            }).then((response) => {
+                console.log("zzd got response from", peerName, response);
+                if (!response) return;
+                if (!response.payload) return;
+                console.log(response);
+                if (!response.payload.transactions) return;
+                for (const transactionData of response.payload.transactions) {
+                    const transaction = new Transaction(transactionData.transactionId, transactionData.amount, transactionData.sender, transactionData.receiver, transactionData.signMessage)
+                    this.addPendingTransaction(transaction, true);
+                }
+            })
+        })
+    }
+
+    addPendingTransaction(transaction: Transaction, skip_if_already_exists = false) {
         console.log("adding pending transaction", transaction);
+        if (skip_if_already_exists && this.pendingTransactions.some(t => t.isEqual(transaction))) {
+            console.log("transaction already exists, skipping");
+            return;
+        }
         this.pendingTransactions = [...this.pendingTransactions, transaction]; // can't use push because it mutates the array which means the state won't pick up the change
         this.triggerOnPendingTransactionsChanged();
     }
