@@ -40,8 +40,16 @@ export class MinedBlock extends Block {
         this.previousBlockHash = previousBlockHash;
     }
 
-    async isHashValid(): Promise<boolean> {
-        return this.getHash().startsWith("000");
+    isHashValid(): boolean {
+        if (process.env.NEXT_PUBLIC_HASH_VERI_VIA_ZEROS == "true") {
+            return this.getHash().startsWith("000");
+        }
+
+        const target = 10**73;
+        const hashInt = BigInt(`0x${this.getHash()}`);
+        return hashInt < BigInt(target);
+
+        return false;
     }
 
     async areTransactionsValid(publicKeys: Map<string, string>): Promise<boolean> {
@@ -178,7 +186,7 @@ export class PendingBlock extends Block {
     mine(previousBlock: MinedBlock | null, previousBlockHash: string | null): MinedBlock {
         let proofOfWork = 0;
         let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
-        while (!minedBlock.getHash().startsWith("000")) {
+        while (!minedBlock.isHashValid()) {
             proofOfWork++;
             minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         }
