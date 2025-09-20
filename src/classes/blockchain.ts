@@ -114,11 +114,12 @@ export class Blockchain {
 
         // Follow the previous block references until we reach the genesis block
         while (currentBlock && currentBlock.previousBlockHash) {
-            currentBlock = this.getBlockByHash(currentBlock.previousBlockHash);
+            const previousBlockHash = currentBlock.previousBlockHash;
+            currentBlock = this.getBlockByHash(previousBlockHash);
             if (currentBlock) {
                 chain.push(currentBlock);
             } else {
-                console.warn("Could not find previous block with hash:", currentBlock?.previousBlockHash);
+                console.warn("Could not find previous block with hash:", previousBlockHash);
                 break;
             }
         }
@@ -208,6 +209,12 @@ export class Blockchain {
         const block = new PendingBlock(transactions);
         const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
         return block.mine(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null);
+    }
+
+    async mineBlockFromTransactionsAsync(transactions: Transaction[]): Promise<MinedBlock> {
+        const block = new PendingBlock(transactions);
+        const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
+        return await block.mineAsync(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null);
     }
 
     getAllTransactionsInChain() {
@@ -406,6 +413,19 @@ export class Blockchain {
     mineLatestTransaction() {
         if (!this.connection.peer) { return }
         const minedBlock = this.mineBlockFromTransactions(this.pendingTransactions.slice(0, 1))
+
+        console.log("mined block:", minedBlock)
+
+        // Add the block to our blockchain
+        this.addBlock(minedBlock, true);
+
+        // Broadcast the mined block to all connected clients
+        this.broadcastBlock(minedBlock);
+    }
+
+    async mineLatestTransactionAsync() {
+        if (!this.connection.peer) { return }
+        const minedBlock = await this.mineBlockFromTransactionsAsync(this.pendingTransactions.slice(0, 1))
 
         console.log("mined block:", minedBlock)
 

@@ -45,7 +45,7 @@ export class MinedBlock extends Block {
             return this.getHash().startsWith("000");
         }
 
-        const target = 10**73;
+        const target = 10**72;
         const hashInt = BigInt(`0x${this.getHash()}`);
         return hashInt < BigInt(target);
 
@@ -189,6 +189,23 @@ export class PendingBlock extends Block {
         while (!minedBlock.isHashValid()) {
             proofOfWork++;
             minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+        }
+
+        return minedBlock;
+    }
+
+    async mineAsync(previousBlock: MinedBlock | null, previousBlockHash: string | null): Promise<MinedBlock> {
+        let proofOfWork = 0;
+        let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+        
+        while (!minedBlock.isHashValid()) {
+            proofOfWork++;
+            minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+            
+            // Yield control every 1000 iterations to keep UI responsive
+            if (proofOfWork % 1000 === 0) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
         }
 
         return minedBlock;

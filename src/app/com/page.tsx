@@ -17,6 +17,7 @@ import type { RequestOtherPublicKey } from "@/lib/messages"
 import TransactionCard from "./TransactionCard"
 import BlockCard from "./BlockCard"
 import ConnCard from "@/components/specific/main/connCard"
+import { LoadingOverlay } from "@/components/ui/loading-overlay"
 
 export type Data = object
 
@@ -45,7 +46,7 @@ export default function Page() {
   // )
   const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([])
 
-  const { clearBlocks, pendingTransactions, minedBlocks, addPendingTransaction, addBlock, mineBlockFromTransactions, getBlockByHash, calculateBalance, sendCurrencyToEveryone, mineLatestTransaction, broadcastBlock } = useBlockChainContext()
+  const { clearBlocks, pendingTransactions, minedBlocks, isMining, addPendingTransaction, addBlock, mineBlockFromTransactions, getBlockByHash, calculateBalance, sendCurrencyToEveryone, mineLatestTransaction, broadcastBlock } = useBlockChainContext()
   const pgp = useOpenPGPContext()
 
   const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
@@ -142,7 +143,7 @@ export default function Page() {
       .catch(error => console.error("Error calculating balance:", error))
     
     return null
-  }, [calculateBalance, pgp.publicKeys, peer, minedBlocks])
+  }, [calculateBalance, pgp.publicKeys, peer])
 
   function addFakeButCoherentBlockToOwnChain() {
     if (!peer) { return }
@@ -169,7 +170,9 @@ export default function Page() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+    <>
+      <LoadingOverlay isVisible={isMining} message="Mining..." />
+      <div className="p-4 md:p-6 space-y-4 md:space-y-6">
       <Card className="shadow-md">
         <CardContent className="p-4 md:p-6">
           <div className="flex flex-col sm:flex-row flex-wrap items-start sm:items-center gap-4">
@@ -208,9 +211,14 @@ export default function Page() {
                   Send Currency To Everyone
                 </Button>
 
-                <Button onClick={mineLatestTransaction} className="w-full justify-start" variant="outline">
+                <Button 
+                  onClick={() => mineLatestTransaction()} 
+                  className="w-full justify-start" 
+                  variant="outline"
+                  disabled={isMining}
+                >
                   <Pickaxe className="mr-2 h-4 w-4" />
-                  Mine Latest Transaction
+                  {isMining ? "Mining..." : "Mine Latest Transaction"}
                 </Button>
               </div>
             </div>
@@ -296,6 +304,7 @@ export default function Page() {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

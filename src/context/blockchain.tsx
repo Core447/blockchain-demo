@@ -13,6 +13,7 @@ export type BlockChainContextType = {
     // blockchain: Blockchain
     pendingTransactions: Transaction[]
     minedBlocks: MinedBlock[]
+    isMining: boolean
     addPendingTransaction: (transaction: Transaction) => void
     addBlock: (block: MinedBlock, removeFromPending?: boolean) => void
     mineBlockFromTransactions: (transactions: Transaction[]) => MinedBlock | null
@@ -21,7 +22,7 @@ export type BlockChainContextType = {
     calculateBalance: (publicKeys: Map<string, string>, userId: string) => Promise<number>
     clearBlocks: () => void
     sendCurrencyToEveryone: (privateKey: string) => void
-    mineLatestTransaction: () => void
+    mineLatestTransaction: () => Promise<void>
     sendMoney: (receiver: string, amount: number, privateKey: string) => Promise<void>
     sendMoneyInTheNameOfSomeone: (sender: string, receiver: string, amount: number) => Promise<void>
     broadcastBlock: (block: MinedBlock) => void
@@ -40,6 +41,7 @@ export const useBlockChainContext = () => {
 export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [minedBlocks, setMinedBlocks] = useState<MinedBlock[]>([]);
     const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
+    const [isMining, setIsMining] = useState<boolean>(false);
     const blockchainRef = useRef<Blockchain | null>(null);
 
     const { connection } = useConnectionContext();
@@ -119,9 +121,16 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         blockchainRef.current.sendCurrencyToEveryone(privateKey);
     }, []);
 
-    const mineLatestTransaction = useCallback(() => {
+    const mineLatestTransaction = useCallback(async () => {
         if (!blockchainRef.current) return;
-        blockchainRef.current.mineLatestTransaction();
+        
+        setIsMining(true);
+        try {
+            // Use the async mining method that yields control periodically
+            await blockchainRef.current.mineLatestTransactionAsync();
+        } finally {
+            setIsMining(false);
+        }
     }, []);
 
     const sendMoney = useCallback(async(receiver: string, amount: number, privateKey: string) => {
@@ -144,6 +153,7 @@ export const BlockChainProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             clearBlocks,
             pendingTransactions,
             minedBlocks,
+            isMining,
             addPendingTransaction,
             addBlock,
             mineBlockFromTransactions,
