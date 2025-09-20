@@ -373,16 +373,23 @@ export class Blockchain {
         this.addBlock(minedBlock, true);
 
         // Broadcast the mined block to all connected clients
+        this.broadcastBlock(minedBlock);
+    }
+
+    broadcastBlock(block: MinedBlock) {
+        if (!this.connection.peer) { return }
+
         if (this.connection.connectedCons.length > 0) {
-            console.log("Broadcasting mined block to all connected clients");
+            console.log("Broadcasting block to all connected clients");
             sendData(
                 this.connection.peer,
                 this.connection.connectedCons,
-                minedBlock.getData(),
+                block.getData(),
                 "block",
                 this.connection.connectedCons.map((c) => c.peer),
             );
         }
     }
+
 
 }

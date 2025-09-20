@@ -45,7 +45,7 @@ export default function Page() {
   // )
   const [unverifiedPackages, setUnverifiedPackages] = useState<Packet[]>([])
 
-  const { clearBlocks, pendingTransactions, minedBlocks, addPendingTransaction, addBlock, mineBlockFromTransactions, getBlockByHash, calculateBalance, sendCurrencyToEveryone, mineLatestTransaction } = useBlockChainContext()
+  const { clearBlocks, pendingTransactions, minedBlocks, addPendingTransaction, addBlock, mineBlockFromTransactions, getBlockByHash, calculateBalance, sendCurrencyToEveryone, mineLatestTransaction, broadcastBlock } = useBlockChainContext()
   const pgp = useOpenPGPContext()
 
   const { peer, peerName, connectedCons, addDataHandler, requesters, addRRHandler } = useConnectionContext()
@@ -148,8 +148,10 @@ export default function Page() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
     const lastBlock = minedBlocks[minedBlocks.length - 1]
-    const minedBlock = pendingBlock.mine(lastBlock, null)
+    const minedBlock = pendingBlock.mine(lastBlock, lastBlock.getHash())
     addBlock(minedBlock, true)
+
+    // broadcastBlock(minedBlock)
   }
 
   function clearOwnChain() {
