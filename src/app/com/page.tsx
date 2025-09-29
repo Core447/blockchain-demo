@@ -249,7 +249,7 @@ export default function Page() {
 
                 <Button onClick={addFakeButCoherentBlockToOwnChain} className="w-full justify-start" variant="outline">
                   <PlusCircle className="mr-2 h-4 w-4" />
-                  Add Fake But Coherent Block
+                  Add Fake But Coherent Block To Own Chain
                 </Button>
 
                 <Button onClick={clearOwnChain} className="w-full justify-start" variant="outline">
