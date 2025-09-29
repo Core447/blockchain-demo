@@ -141,8 +141,11 @@ export class Transaction {
                 return false;
             }
 
-            // now verify that this is the only block reward transaction in the block
+            // now verify that this is the first block reward transaction in the block
             for (const transaction of blockOfTransaction.transactions) {
+                if (transaction == this) {
+                    break;
+                }
                 if (transaction.sender == "system") {
                     return false;
                 }
