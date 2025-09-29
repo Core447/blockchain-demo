@@ -44,8 +44,8 @@ export default function TransactionOverview({ transaction, publicKeys }: Transac
             <span className="font-medium">Amount:</span>
             <Badge variant="secondary">{transaction.amount}</Badge>
           </div>
-          <Badge variant={signatureIsValid ? "success" : "destructive"}>
-            {signatureIsValid ? "Valid" : "Invalid"} Signature
+          <Badge variant={transaction.sender == "system" ? "secondary" : signatureIsValid ? "success" : "destructive"}>
+            {transaction.sender == "system" ? "System transaction" : signatureIsValid ? "Valid Signature" : "Invalid Signature"}
           </Badge>
         </div>
       </CardContent>

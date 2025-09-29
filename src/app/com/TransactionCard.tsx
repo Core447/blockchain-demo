@@ -32,7 +32,8 @@ export default function TransactionCard({ transaction, publicKeys }: Transaction
             <p>Receiver: {transaction.receiver}</p>
             <p>Amount: {transaction.amount}</p>
             <h1 className="text-lg font-bold">Checks</h1>
-            <p>{signatureIsValid ? "Signature is valid" : "Signature is not valid"}</p>
+            <p>{transaction.sender}</p>
+            <p>{transaction.sender == "system" ? "System transaction" : signatureIsValid ? "Signature is valid" : "Signature is not valid"}</p>
         </div>
     )
 }
