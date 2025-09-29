@@ -1,6 +1,7 @@
 import { Data } from "@/app/com/page";
 import { clear } from "console";
 import { createCleartextMessage, readCleartextMessage, readKey, readPrivateKey, sign, verify } from "openpgp";
+import { MinedBlock } from "./blocks";
 
 export interface UnsignedTransactionData {
     transactionId: number;
@@ -124,9 +125,12 @@ export class Transaction {
         return indices.length == new Set(indices).size;
     }
 
-    async isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
+    async isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[], blockOfTransaction: MinedBlock | null) {
         // special case: system transactions (used for block rewards)
         if (this.sender == "system") {
+            if (!blockOfTransaction) {
+                return false;
+            }
             if (this.amount != 50) {
                 return false;
             }
@@ -136,7 +140,14 @@ export class Transaction {
             if (this.signMessage) {
                 return false;
             }
-            console.log("ssy: true")
+
+            // now verify that this is the first block reward transaction in the block
+            for (const transaction of blockOfTransaction.transactions) {
+                if (transaction.sender == "system") {
+                    return false;
+                }
+            }
+
             return true;
         }
 

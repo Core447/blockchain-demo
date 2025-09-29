@@ -61,7 +61,7 @@ export class MinedBlock extends Block {
             const previousTransactionsOfUser = getTransactionsBeforeThisBlock.filter(transaction => transaction.sender === sender);
             const senderTransactionsOfThisBlock = this.transactions.filter(transaction => transaction.sender === sender);
             for (const transaction of senderTransactionsOfThisBlock) {
-                if (!(await transaction.isValid(publicKeys, previousTransactionsOfUser))) {
+                if (!(await transaction.isValid(publicKeys, previousTransactionsOfUser, this))) {
                     return false;
                 }
                 previousTransactionsOfUser.push(transaction);
@@ -185,6 +185,7 @@ export class MinedBlock extends Block {
 export class PendingBlock extends Block {
     addRewards(userId: string) {
         // add block reward
+        this.transactions.push(new Transaction(0, 50, "system", userId, null));
         this.transactions.push(new Transaction(0, 50, "system", userId, null));
         // todo: add ability to users to give additional rewards - add to the block here
     }

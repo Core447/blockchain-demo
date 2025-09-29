@@ -225,6 +225,16 @@ export class Blockchain {
         return transactions;
     }
 
+    getBlockOfTransaction(transaction: Transaction): MinedBlock | null {
+        for (const block of this.minedBlocks) {
+            if (block.transactions.some(t => t.isEqual(transaction))) {
+                return block;
+            }
+        }
+        // not found
+        return null;
+    }
+
     async getValidTransactions(publicKeys: Map<string, string>) {
         const allTransactions = this.getAllTransactionsInChain();
         let userIds = [...allTransactions.map(transaction => transaction.sender), ...allTransactions.map(transaction => transaction.receiver)];
@@ -238,7 +248,8 @@ export class Blockchain {
             const previousTransactionsOfUser = [];
             const senderTransactions = allTransactions.filter(transaction => transaction.sender === senderId);
             for (const transaction of senderTransactions) {
-                if (await transaction.isValid(publicKeys, previousTransactionsOfUser)) {
+                const blockOfTransaction = this.getBlockOfTransaction(transaction);
+                if (await transaction.isValid(publicKeys, previousTransactionsOfUser, blockOfTransaction)) {
                     validTransactions.push(transaction);
                     previousTransactionsOfUser.push(transaction);
                 }
