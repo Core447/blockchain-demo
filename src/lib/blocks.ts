@@ -183,14 +183,16 @@ export class MinedBlock extends Block {
 }
 
 export class PendingBlock extends Block {
-    addRewards(userId: string) {
+    addRewards(userId: string, numberOfBlockRewardsToClaim: number) {
+        console.log("adding rewards to block", numberOfBlockRewardsToClaim);
         // add block reward
-        this.transactions.push(new Transaction(0, 50, "system", userId, null));
-        this.transactions.push(new Transaction(0, 50, "system", userId, null));
+        for (let i = 0; i < numberOfBlockRewardsToClaim; i++) {
+            this.transactions.push(new Transaction(0, 50, "system", userId, null));
+        }
         // todo: add ability to users to give additional rewards - add to the block here
     }
-    mine(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string): MinedBlock {
-        this.addRewards(userId);
+    mine(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string, numberOfBlockRewardsToClaim: number): MinedBlock {
+        this.addRewards(userId, numberOfBlockRewardsToClaim);
         let proofOfWork = 0;
         let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         while (!minedBlock.isHashValid()) {
@@ -201,8 +203,8 @@ export class PendingBlock extends Block {
         return minedBlock;
     }
 
-    async mineAsync(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string): Promise<MinedBlock> {
-        this.addRewards(userId);
+    async mineAsync(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string, numberOfBlockRewardsToClaim: number): Promise<MinedBlock> {
+        this.addRewards(userId, numberOfBlockRewardsToClaim);
         let proofOfWork = 0;
         let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         

@@ -205,16 +205,16 @@ export class Blockchain {
         this.minedBlocks = [];
     }
 
-    mineBlockFromTransactions(transactions: Transaction[]): MinedBlock {
+    mineBlockFromTransactions(transactions: Transaction[], numberOfBlockRewardsToClaim: number): MinedBlock {
         const block = new PendingBlock(transactions);
         const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
-        return block.mine(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null, this.connection.peer!.id);
+        return block.mine(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null, this.connection.peer!.id, numberOfBlockRewardsToClaim);
     }
 
-    async mineBlockFromTransactionsAsync(transactions: Transaction[]): Promise<MinedBlock> {
+    async mineBlockFromTransactionsAsync(transactions: Transaction[], numberOfBlockRewardsToClaim: number): Promise<MinedBlock> {
         const block = new PendingBlock(transactions);
         const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
-        return await block.mineAsync(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null, this.connection.peer!.id);
+        return await block.mineAsync(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null, this.connection.peer!.id, numberOfBlockRewardsToClaim);
     }
 
     getAllTransactionsInChain() {
@@ -422,9 +422,9 @@ export class Blockchain {
         };
     }
 
-    mineLatestTransaction() {
+    mineLatestTransaction(numberOfBlockRewardsToClaim: number) {
         if (!this.connection.peer) { return }
-        const minedBlock = this.mineBlockFromTransactions(this.pendingTransactions.slice(0, 1))
+        const minedBlock = this.mineBlockFromTransactions(this.pendingTransactions.slice(0, 1), numberOfBlockRewardsToClaim)
 
         console.log("mined block:", minedBlock)
 
@@ -435,9 +435,9 @@ export class Blockchain {
         this.broadcastBlock(minedBlock);
     }
 
-    async mineLatestTransactionAsync() {
+    async mineLatestTransactionAsync(numberOfBlockRewardsToClaim: number) {
         if (!this.connection.peer) { return }
-        const minedBlock = await this.mineBlockFromTransactionsAsync(this.pendingTransactions.slice(0, 1))
+        const minedBlock = await this.mineBlockFromTransactionsAsync(this.pendingTransactions.slice(0, 1), numberOfBlockRewardsToClaim)
 
         console.log("mined block:", minedBlock)
 

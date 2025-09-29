@@ -5,7 +5,9 @@ import "react-json-pretty/themes/monikai.css"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Coins, Pickaxe, Key, PlusCircle, Users, Database, Clock, Trash2 } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Coins, Pickaxe, Key, PlusCircle, Users, Database, Clock, Trash2, ChevronUp, ChevronDown, Award } from "lucide-react"
 import { sendData } from "@/lib/communication"
 import { type SignedTransactionData, Transaction, transactionsFromTransactionsData } from "@/lib/transactions"
 import { useBlockChainContext } from "@/context/blockchain"
@@ -132,6 +134,7 @@ export default function Page() {
   }, [pendingTransactions])
 
   const [balance, setBalance] = useState(0)
+  const [blockRewardsToClaim, setBlockRewardsToClaim] = useState(1)
 
   useEffect(() => {
     if (!peer) { return }
@@ -145,7 +148,7 @@ export default function Page() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
     const lastBlock = minedBlocks[minedBlocks.length - 1]
-    const minedBlock = pendingBlock.mine(lastBlock, lastBlock.getHash(), peer.id)
+    const minedBlock = pendingBlock.mine(lastBlock, lastBlock.getHash(), peer.id, blockRewardsToClaim)
     addBlock(minedBlock, true)
 
     // broadcastBlock(minedBlock)
@@ -153,6 +156,21 @@ export default function Page() {
 
   function clearOwnChain() {
     clearBlocks()
+  }
+
+  function incrementBlockRewards() {
+    setBlockRewardsToClaim(prev => Math.min(prev + 1, 5))
+  }
+
+  function decrementBlockRewards() {
+    setBlockRewardsToClaim(prev => Math.max(prev - 1, 0))
+  }
+
+  function handleBlockRewardsInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const value = parseInt(e.target.value, 10)
+    if (!isNaN(value) && value >= 0 && value <= 5) {
+      setBlockRewardsToClaim(value)
+    }
   }
 
   const [mounted, setMounted] = useState(false)
@@ -208,7 +226,7 @@ export default function Page() {
                 </Button>
 
                 <Button 
-                  onClick={() => mineLatestTransaction()} 
+                  onClick={() => mineLatestTransaction(blockRewardsToClaim)} 
                   className="w-full justify-start" 
                   variant="outline"
                   disabled={isMining}
@@ -238,6 +256,23 @@ export default function Page() {
                   <Trash2 className="mr-2 h-4 w-4" />
                   Clear Own Chain
                 </Button>
+
+                <div className="border rounded-md p-3 space-y-2">
+                  <Label className="text-sm font-medium flex items-center">
+                    <Award className="mr-2 h-4 w-4" />
+                    Number of block rewards to claim
+                  </Label>
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="number"
+                      value={blockRewardsToClaim}
+                      onChange={handleBlockRewardsInputChange}
+                      min={0}
+                      max={5}
+                      className="h-8 w-16 text-center"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
