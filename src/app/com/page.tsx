@@ -148,7 +148,7 @@ export default function Page() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
     const lastBlock = minedBlocks[minedBlocks.length - 1]
-    const minedBlock = pendingBlock.mine(lastBlock, lastBlock.getHash(), peer.id, blockRewardsToClaim)
+    const minedBlock = pendingBlock.mine(lastBlock, lastBlock ? lastBlock.getHash() : null, peer.id, blockRewardsToClaim)
     addBlock(minedBlock, true)
 
     // broadcastBlock(minedBlock)
