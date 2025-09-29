@@ -133,23 +133,19 @@ export default function Page() {
 
   const [balance, setBalance] = useState(0)
 
-  const ownBalance = useMemo(() => {
+  useEffect(() => {
     if (!peer) { return }
-    
     const balancePromise = calculateBalance(pgp.publicKeys, peer.id)
-    
     balancePromise
       .then(balance => setBalance(balance))
       .catch(error => console.error("Error calculating balance:", error))
-    
-    return null
-  }, [calculateBalance, pgp.publicKeys, peer])
+  }, [calculateBalance, pgp.publicKeys, peer, minedBlocks])
 
   function addFakeButCoherentBlockToOwnChain() {
     if (!peer) { return }
     const pendingBlock = new PendingBlock([])
     const lastBlock = minedBlocks[minedBlocks.length - 1]
-    const minedBlock = pendingBlock.mine(lastBlock, lastBlock.getHash())
+    const minedBlock = pendingBlock.mine(lastBlock, lastBlock.getHash(), peer.id)
     addBlock(minedBlock, true)
 
     // broadcastBlock(minedBlock)

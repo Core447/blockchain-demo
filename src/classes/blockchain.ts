@@ -208,13 +208,13 @@ export class Blockchain {
     mineBlockFromTransactions(transactions: Transaction[]): MinedBlock {
         const block = new PendingBlock(transactions);
         const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
-        return block.mine(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null);
+        return block.mine(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null, this.connection.peer!.id);
     }
 
     async mineBlockFromTransactionsAsync(transactions: Transaction[]): Promise<MinedBlock> {
         const block = new PendingBlock(transactions);
         const latestBlock = this.minedBlocks[this.minedBlocks.length - 1];
-        return await block.mineAsync(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null);
+        return await block.mineAsync(latestBlock ?? null, latestBlock ? latestBlock.getHash() : null, this.connection.peer!.id);
     }
 
     getAllTransactionsInChain() {
@@ -244,7 +244,7 @@ export class Blockchain {
                 }
             }
         }
-
+        console.log("ssy, number of valid transactions:", validTransactions.length);
         return validTransactions;
     }
 
@@ -268,6 +268,7 @@ export class Blockchain {
         const transactions = await this.getValidTransactions(publicKeys);
         const outgoingTransactions = transactions.filter(transaction => transaction.sender === userId);
         const incomingTransactions = transactions.filter(transaction => transaction.receiver === userId);
+        console.log("ssy, number of incoming transactions:", incomingTransactions.length);
         const outgoingAmount = outgoingTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         const incomingAmount = incomingTransactions.reduce((total, transaction) => total + transaction.amount, 0);
         return incomingAmount - outgoingAmount;

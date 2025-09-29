@@ -183,7 +183,13 @@ export class MinedBlock extends Block {
 }
 
 export class PendingBlock extends Block {
-    mine(previousBlock: MinedBlock | null, previousBlockHash: string | null): MinedBlock {
+    addRewards(userId: string) {
+        // add block reward
+        this.transactions.push(new Transaction(0, 50, "system", userId, null));
+        // todo: add ability to users to give additional rewards - add to the block here
+    }
+    mine(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string): MinedBlock {
+        this.addRewards(userId);
         let proofOfWork = 0;
         let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         while (!minedBlock.isHashValid()) {
@@ -194,7 +200,8 @@ export class PendingBlock extends Block {
         return minedBlock;
     }
 
-    async mineAsync(previousBlock: MinedBlock | null, previousBlockHash: string | null): Promise<MinedBlock> {
+    async mineAsync(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string): Promise<MinedBlock> {
+        this.addRewards(userId);
         let proofOfWork = 0;
         let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
         

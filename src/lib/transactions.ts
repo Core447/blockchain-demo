@@ -125,6 +125,22 @@ export class Transaction {
     }
 
     async isValid(publicKeys: Map<string, string>, previousTransactionsOfUser: Transaction[]) {
+        // special case: system transactions (used for block rewards)
+        if (this.sender == "system") {
+            if (this.amount != 50) {
+                return false;
+            }
+            if (this.transactionId != 0) {
+                return false;
+            }
+            if (this.signMessage) {
+                return false;
+            }
+            console.log("ssy: true")
+            return true;
+        }
+
+        
         console.log("checking with n previous transactions:", previousTransactionsOfUser.length);
         if (!this.checkIfIndexIsUnique(previousTransactionsOfUser)) {
             console.log("false: index not unique, index: ", this.transactionId);
