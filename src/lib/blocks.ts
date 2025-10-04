@@ -193,11 +193,11 @@ export class PendingBlock extends Block {
     }
     mine(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string, numberOfBlockRewardsToClaim: number): MinedBlock {
         this.addRewards(userId, numberOfBlockRewardsToClaim);
-        let proofOfWork = 0;
-        let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+        let nonce = 0;
+        let minedBlock = new MinedBlock(previousBlock, previousBlockHash, nonce, this.transactions);
         while (!minedBlock.isHashValid()) {
-            proofOfWork++;
-            minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+            nonce++;
+            minedBlock = new MinedBlock(previousBlock, previousBlockHash, nonce, this.transactions);
         }
 
         return minedBlock;
@@ -205,15 +205,15 @@ export class PendingBlock extends Block {
 
     async mineAsync(previousBlock: MinedBlock | null, previousBlockHash: string | null, userId: string, numberOfBlockRewardsToClaim: number): Promise<MinedBlock> {
         this.addRewards(userId, numberOfBlockRewardsToClaim);
-        let proofOfWork = 0;
-        let minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+        let nonce = 0;
+        let minedBlock = new MinedBlock(previousBlock, previousBlockHash, nonce, this.transactions);
         
         while (!minedBlock.isHashValid()) {
-            proofOfWork++;
-            minedBlock = new MinedBlock(previousBlock, previousBlockHash, proofOfWork, this.transactions);
+            nonce++;
+            minedBlock = new MinedBlock(previousBlock, previousBlockHash, nonce, this.transactions);
             
             // Yield control every 1000 iterations to keep UI responsive
-            if (proofOfWork % 1000 === 0) {
+            if (nonce % 1000 === 0) {
                 await new Promise(resolve => setTimeout(resolve, 0));
             }
         }
