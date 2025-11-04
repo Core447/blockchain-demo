@@ -59,7 +59,6 @@ export class PGP {
     }
 
     broadcastPublicKey() {
-        console.log("broadcastPublicKey")
         if (!this.connection.peer) { return }
         console.info("broadcasting public key to " + this.connection.connectedCons.length, "connections");
         const data: PublicKeyShare = {

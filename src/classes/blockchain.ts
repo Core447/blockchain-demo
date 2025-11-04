@@ -292,11 +292,7 @@ export class Blockchain {
     }
 
     loadBlocksFromOtherClients() {
-        console.log("zzd bbc getting blocks from other clients", this.connection.requesters.size);
         this.connection.requesters.forEach((requester, peerName) => {
-            if (peerName == this.connection.peerName) {
-                alert("skipping own peer");
-            }
             requester.request<Payload<RequestAllBlocks>, Payload<ResponseAllBlocks>>({
                 type: "getAllBlocks",
                 payload: {
