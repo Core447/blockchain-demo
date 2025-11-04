@@ -1,3 +1,4 @@
+import { Badge } from "@/components/ui/badge";
 import { useOpenPGPContext } from "@/context/openpgp";
 import { Transaction } from "@/lib/transactions";
 import { useEffect, useMemo, useState } from "react"
@@ -28,12 +29,20 @@ export default function TransactionCard({ transaction, publicKeys }: Transaction
 
     return (
         <div className="p-2 border rounded mb-2">
-            <p>Sender: {transaction.sender}</p>
-            <p>Receiver: {transaction.receiver}</p>
-            <p>Amount: {transaction.amount}</p>
+            <div className="flex items-center gap-2">
+                <p>Sender:</p>
+                <Badge variant="outline">{transaction.sender}</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+                <p>Receiver:</p>
+                <Badge variant="outline">{transaction.receiver}</Badge>
+            </div>
+            <div className="flex items-center gap-2">
+                <p>Amount:</p>
+                <Badge variant="secondary">{transaction.amount}</Badge>
+            </div>
             <h1 className="text-lg font-bold">Checks</h1>
-            <p>{transaction.sender}</p>
-            <p>{transaction.sender == "system" ? "System transaction" : signatureIsValid ? "Signature is valid" : "Signature is not valid"}</p>
+            <Badge variant={signatureIsValid ? "success" : "destructive"}>{transaction.sender == "system" ? "System transaction" : signatureIsValid ? "Signature is valid" : "Signature is not valid"}</Badge>
         </div>
     )
 }
